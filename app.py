@@ -1,20 +1,15 @@
-from flask import Flask, request, jsonify, render_template_string, send_from_directory
+from flask import Flask, request, jsonify, render_template_string
 import requests
 import re
 import time
-import os
-import random
 from datetime import datetime
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 # --- CONFIGURATION ---
 app = Flask(__name__)
-REPORT_DIR = "reports"
-if not os.path.exists(REPORT_DIR):
-    os.makedirs(REPORT_DIR)
 
-# --- MODERN UI TEMPLATE ---
+# --- MODERN UI TEMPLATE (Professional Glassmorphism) ---
 HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="en">
@@ -30,8 +25,6 @@ HTML_TEMPLATE = """
         :root {
             --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             --glass-bg: rgba(255, 255, 255, 0.95);
-            --success-color: #10b981;
-            --error-color: #ef4444;
         }
 
         body {
@@ -49,54 +42,41 @@ HTML_TEMPLATE = """
         .backdrop-overlay {
             position: absolute;
             top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0, 0, 0, 0.4);
-            backdrop-filter: blur(8px);
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(5px);
             z-index: -1;
         }
 
         .main-card {
             background: var(--glass-bg);
             border-radius: 24px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
             width: 100%;
-            max-width: 480px;
+            max-width: 450px;
             overflow: hidden;
-            border: 1px solid rgba(255,255,255,0.5);
-            transform: translateY(0);
-            transition: transform 0.3s ease;
+            border: 1px solid rgba(255,255,255,0.6);
         }
 
         .card-header-custom {
             background: var(--primary-gradient);
-            padding: 40px 30px;
+            padding: 35px;
             text-align: center;
             color: white;
-            position: relative;
-            overflow: hidden;
         }
 
-        .card-header-custom::after {
-            content: '';
-            position: absolute;
-            top: -50%; left: -50%; width: 200%; height: 200%;
-            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 60%);
-            animation: rotate 10s linear infinite;
-        }
+        .app-title { font-weight: 700; font-size: 1.4rem; letter-spacing: 1px; margin-bottom: 5px; }
+        .app-subtitle { font-size: 0.85rem; opacity: 0.9; font-weight: 300; }
 
-        @keyframes rotate { from {transform: rotate(0deg);} to {transform: rotate(360deg);} }
-
-        .app-title { font-weight: 700; letter-spacing: 1px; font-size: 1.5rem; margin-bottom: 5px; }
-        .app-subtitle { font-size: 0.9rem; opacity: 0.9; font-weight: 300; }
-
-        .card-body-custom { padding: 35px 30px; }
+        .card-body-custom { padding: 30px; }
 
         .form-floating > .form-control {
             border-radius: 12px;
             border: 2px solid #e2e8f0;
             height: 60px;
             font-size: 1.2rem;
-            font-weight: 600;
+            font-weight: 700;
             letter-spacing: 2px;
+            text-align: center;
             color: #2d3748;
         }
         
@@ -112,114 +92,50 @@ HTML_TEMPLATE = """
             border-radius: 12px;
             font-weight: 600;
             font-size: 1.1rem;
-            letter-spacing: 0.5px;
-            margin-top: 25px;
-            position: relative;
-            overflow: hidden;
-            transition: all 0.3s;
+            width: 100%;
+            margin-top: 20px;
+            transition: transform 0.2s;
         }
-
-        .btn-process:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 20px rgba(118, 75, 162, 0.3);
-        }
-
-        .btn-process:active { transform: translateY(0); }
+        .btn-process:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(118, 75, 162, 0.3); }
 
         /* Result Styles */
-        .result-container {
-            display: none;
-            margin-top: 30px;
-            animation: slideUp 0.5s ease-out;
-        }
-
+        .result-container { display: none; margin-top: 25px; animation: slideUp 0.4s ease-out; }
+        
         .status-box {
-            padding: 20px;
-            border-radius: 16px;
-            text-align: center;
-            position: relative;
+            padding: 20px; border-radius: 16px; text-align: center;
         }
-
-        .status-success {
-            background: #ecfdf5;
-            border: 2px solid #10b981;
-            color: #065f46;
-        }
-
-        .status-error {
-            background: #fff5f5;
-            border: 2px solid #fc8181;
-            color: #c53030;
-        }
+        .status-success { background: #ecfdf5; border: 2px solid #10b981; color: #065f46; }
+        .status-error { background: #fff5f5; border: 2px solid #fc8181; color: #c53030; }
 
         .challan-badge {
-            background: white;
-            padding: 8px 20px;
-            border-radius: 50px;
-            font-weight: 700;
-            font-size: 1.2rem;
-            color: #333;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-            display: inline-block;
-            margin: 15px 0;
-            border: 1px dashed #cbd5e0;
-        }
-
-        .action-buttons {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-            margin-top: 20px;
+            background: white; padding: 8px 15px; border-radius: 50px;
+            font-weight: 700; font-size: 1.1rem; color: #333;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05); display: inline-block; margin: 10px 0;
         }
 
         .btn-report {
-            padding: 12px;
-            border-radius: 10px;
-            font-size: 0.9rem;
-            font-weight: 600;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            text-decoration: none;
-            transition: all 0.2s;
+            padding: 12px; border-radius: 10px; font-size: 0.9rem; font-weight: 600;
+            display: flex; align-items: center; justify-content: center;
+            text-decoration: none; transition: all 0.2s; width: 100%; margin-top: 10px;
         }
+        .btn-rep-1 { background: white; border: 2px solid #3b82f6; color: #3b82f6; }
+        .btn-rep-1:hover { background: #3b82f6; color: white; }
+        .btn-rep-2 { background: #1f2937; border: 2px solid #1f2937; color: white; }
+        .btn-rep-2:hover { background: #374151; border-color: #374151; }
 
-        .btn-report-1 { background: white; border: 2px solid #3b82f6; color: #3b82f6; }
-        .btn-report-1:hover { background: #3b82f6; color: white; }
-
-        .btn-report-2 { background: #1f2937; border: 2px solid #1f2937; color: white; }
-        .btn-report-2:hover { background: #374151; border-color: #374151; }
-
-        /* Loader */
         .loader-overlay {
-            display: none;
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(255,255,255,0.8);
-            z-index: 10;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            border-radius: 24px;
+            display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(255,255,255,0.9); z-index: 10;
+            flex-direction: column; align-items: center; justify-content: center;
         }
-        
         .spinner-custom {
-            width: 50px; height: 50px;
-            border: 5px solid #f3f3f3;
-            border-top: 5px solid #764ba2;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
+            width: 40px; height: 40px; border: 4px solid #f3f3f3;
+            border-top: 4px solid #764ba2; border-radius: 50%; animation: spin 1s linear infinite;
         }
-
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-
-        .footer {
-            text-align: center;
-            margin-top: 30px;
-            font-size: 0.8rem;
-            color: #718096;
-        }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .footer { text-align: center; margin-top: 25px; font-size: 0.75rem; color: #a0aec0; }
     </style>
 </head>
 <body>
@@ -229,61 +145,61 @@ HTML_TEMPLATE = """
     <div class="main-card">
         <div class="loader-overlay" id="mainLoader">
             <div class="spinner-custom mb-3"></div>
-            <h6 class="text-muted fw-bold">PROCESSING DATA...</h6>
-            <small class="text-muted">Please wait, connecting to ERP</small>
+            <h6 class="text-muted fw-bold">PROCESSING...</h6>
         </div>
 
         <div class="card-header-custom">
-            <div class="app-title"><i class="fa-solid fa-microchip me-2"></i>SEWING INPUT</div>
-            <div class="app-subtitle">Automated Production System v4.0</div>
+            <div class="app-title"><i class="fa-solid fa-industry me-2"></i>SEWING INPUT</div>
+            <div class="app-subtitle">Smart Automation System v5.0</div>
         </div>
 
         <div class="card-body-custom">
             <form id="entryForm">
-                <div class="form-floating mb-2">
+                <div class="form-floating">
                     <input type="number" class="form-control" id="challanInput" placeholder="Challan No" required autocomplete="off">
-                    <label for="challanInput"><i class="fa-solid fa-barcode me-2"></i>SCAN / ENTER CHALLAN</label>
+                    <label class="text-center w-100 text-muted small fw-bold">ENTER CHALLAN NO</label>
                 </div>
                 
-                <button type="submit" class="btn btn-primary w-100 btn-process">
-                    START PROCESS <i class="fa-solid fa-rocket ms-2"></i>
+                <button type="submit" class="btn-process">
+                    START PROCESS <i class="fa-solid fa-arrow-right ms-2"></i>
                 </button>
             </form>
 
             <div id="successArea" class="result-container">
                 <div class="status-box status-success">
-                    <i class="fa-solid fa-check-circle fa-3x mb-2"></i>
+                    <i class="fa-solid fa-circle-check fa-3x mb-2 text-success"></i>
                     <h4 class="fw-bold m-0">SUCCESS!</h4>
                     <div class="challan-badge" id="successChallan">---</div>
-                    <div class="text-muted small mb-3" id="systemIdTxt">ID: ---</div>
-
-                    <div class="action-buttons">
-                        <a href="#" id="linkRep1" target="_blank" class="btn-report btn-report-1">
-                            <i class="fa-solid fa-file-invoice me-2"></i> Bundle Report
-                        </a>
-                        <a href="#" id="linkRep2" target="_blank" class="btn-report btn-report-2">
-                            <i class="fa-solid fa-print me-2"></i> Print Challan
-                        </a>
+                    
+                    <div class="row g-2 mt-2">
+                        <div class="col-6">
+                            <a href="#" id="linkRep1" target="_blank" class="btn-report btn-rep-1">
+                                <i class="fa-solid fa-barcode me-1"></i> Barcode
+                            </a>
+                        </div>
+                        <div class="col-6">
+                            <a href="#" id="linkRep2" target="_blank" class="btn-report btn-rep-2">
+                                <i class="fa-solid fa-print me-1"></i> Challan
+                            </a>
+                        </div>
                     </div>
                     
                     <button onclick="resetUI()" class="btn btn-link text-muted text-decoration-none mt-3 btn-sm">
-                        <i class="fa-solid fa-rotate-left me-1"></i> Process Another
+                        Process Another
                     </button>
                 </div>
             </div>
 
             <div id="errorArea" class="result-container">
                 <div class="status-box status-error">
-                    <div class="mb-2"><i class="fa-solid fa-triangle-exclamation fa-3x"></i></div>
+                    <i class="fa-solid fa-circle-xmark fa-3x mb-2 text-danger"></i>
                     <h5 class="fw-bold">FAILED</h5>
                     <p class="small mb-0 fw-bold" id="errorMsg">Unknown Error</p>
-                    <button onclick="resetUI()" class="btn btn-danger btn-sm mt-3 px-4 rounded-pill">TRY AGAIN</button>
+                    <button onclick="resetUI()" class="btn btn-danger btn-sm mt-3 px-4 rounded-pill">Retry</button>
                 </div>
             </div>
 
-            <div class="footer">
-                &copy; 2025 MnM Office Automation
-            </div>
+            <div class="footer">&copy; 2025 MnM Office Automation</div>
         </div>
     </div>
 
@@ -299,7 +215,6 @@ HTML_TEMPLATE = """
             const val = input.value;
             if(!val) return;
 
-            // Show Loader
             loader.style.display = 'flex';
             successArea.style.display = 'none';
             errorArea.style.display = 'none';
@@ -315,11 +230,10 @@ HTML_TEMPLATE = """
 
                 if(res.status === 'success') {
                     document.getElementById('successChallan').innerText = res.challan_no;
-                    document.getElementById('systemIdTxt').innerText = "System ID: " + res.system_id;
                     
-                    // Set Report Links (Opens in New Tab)
-                    document.getElementById('linkRep1').href = `/reports/${res.report1}`;
-                    document.getElementById('linkRep2').href = `/reports/${res.report2}`;
+                    // --- DIRECT URL ASSIGNMENT ---
+                    document.getElementById('linkRep1').href = res.report1_url;
+                    document.getElementById('linkRep2').href = res.report2_url;
                     
                     successArea.style.display = 'block';
                 } else {
@@ -327,7 +241,7 @@ HTML_TEMPLATE = """
                     errorArea.style.display = 'block';
                 }
             } catch (err) {
-                document.getElementById('errorMsg').innerText = "Server Connection Error";
+                document.getElementById('errorMsg').innerText = "Network Error";
                 errorArea.style.display = 'block';
             } finally {
                 loader.style.display = 'none';
@@ -361,38 +275,34 @@ def process_data(user_input):
     adapter = HTTPAdapter(max_retries=retry)
     session.mount("http://", adapter)
 
-    # 1. Login
     try:
+        # 1. Login
         session.post(f"{base_url}/login.php", data={'txt_userid': 'input1.clothing-cutting', 'txt_password': '123456', 'submit': 'Login'}, headers=headers_common)
-    except Exception as e:
-        return {"status": "error", "message": "Login Failed"}
 
-    # 2. Session Activation
-    headers_menu = headers_common.copy()
-    headers_menu['Referer'] = f"{base_url}/production/bundle_wise_sewing_input.php?permission=1_1_2_1"
-    try:
-        session.get(f"{base_url}/tools/valid_user_action.php?menuid=724", headers=headers_menu)
-        session.get(f"{base_url}/includes/common_functions_for_js.php?data=724_7_406&action=create_menu_session", headers=headers_menu)
-    except: pass
+        # 2. Session Activation
+        headers_menu = headers_common.copy()
+        headers_menu['Referer'] = f"{base_url}/production/bundle_wise_sewing_input.php?permission=1_1_2_1"
+        try:
+            session.get(f"{base_url}/tools/valid_user_action.php?menuid=724", headers=headers_menu)
+            session.get(f"{base_url}/includes/common_functions_for_js.php?data=724_7_406&action=create_menu_session", headers=headers_menu)
+        except: pass
 
-    # 3. Fetch Data
-    cbo_logic = '1'
-    if user_input.startswith('4'): cbo_logic = '4'
-    elif user_input.startswith('3'): cbo_logic = '2'
+        # 3. Logic & Headers
+        cbo_logic = '1'
+        if user_input.startswith('4'): cbo_logic = '4'
+        elif user_input.startswith('3'): cbo_logic = '2'
 
-    ctrl_url = f"{base_url}/production/requires/bundle_wise_cutting_delevar_to_input_controller.php"
-    headers_ajax = headers_common.copy()
-    headers_ajax['X-Requested-With'] = 'XMLHttpRequest'
-    if 'Content-Type' in headers_ajax: del headers_ajax['Content-Type']
+        ctrl_url = f"{base_url}/production/requires/bundle_wise_cutting_delevar_to_input_controller.php"
+        headers_ajax = headers_common.copy()
+        headers_ajax['X-Requested-With'] = 'XMLHttpRequest'
+        if 'Content-Type' in headers_ajax: del headers_ajax['Content-Type']
 
-    try:
-        # Search
+        # 4. Search & Extract
         res = session.get(ctrl_url, params={'data': f"{user_input}_0__{cbo_logic}_2__1_", 'action': 'create_challan_search_list_view'}, headers=headers_ajax)
         mid = re.search(r"js_set_value\((\d+)\)", res.text)
-        if not mid: return {"status": "error", "message": "❌ Invalid Challan / No Data Found"}
+        if not mid: return {"status": "error", "message": "❌ Invalid Challan"}
         sys_id = mid.group(1)
 
-        # Extract Header
         res_pop = session.post(ctrl_url, params={'data': sys_id, 'action': 'populate_data_from_challan_popup'}, data={'rndval': int(time.time()*1000)}, headers=headers_common)
         
         def get_val(pat, txt, d='0'):
@@ -413,7 +323,6 @@ def process_data(user_input):
         if not raw_bun: return {"status": "error", "message": "❌ No Bundles Found"}
 
         res_tbl = session.get(ctrl_url, params={'data': f"{raw_bun}**0**{sys_id}**{cbo_logic}**{line}", 'action': 'populate_bundle_data_update'}, headers=headers_ajax)
-        
         rows = res_tbl.text.split('<tr')
         b_data = []
         for r in rows:
@@ -427,7 +336,7 @@ def process_data(user_input):
                 'cutNo': get_val(r"name=\"cutNo\[\]\".*?value=\"([^\"]+)\"", r), 'isRescan': get_val(r"name=\"isRescan\[\]\".*?value=\"(\d+)\"", r)
             })
 
-        # Save
+        # 5. Save
         curr_time = datetime.now().strftime("%H:%M")
         payload = {
             'action': 'save_update_delete', 'operation': '0', 'tot_row': str(len(b_data)),
@@ -449,7 +358,6 @@ def process_data(user_input):
 
         headers_save = headers_common.copy()
         headers_save['Referer'] = f"{base_url}/production/bundle_wise_sewing_input.php?permission=1_1_2_1"
-        
         save_res = session.post(f"{base_url}/production/requires/bundle_wise_sewing_input_controller.php", data=payload, headers=headers_save)
         
         if "**" in save_res.text:
@@ -460,28 +368,19 @@ def process_data(user_input):
                 new_sys_id = parts[1]
                 new_challan = parts[2] if len(parts) > 2 else "Sewing Challan"
                 
-                # Fetch Reports
-                headers_rep = headers_common.copy()
-                headers_rep['Upgrade-Insecure-Requests'] = '1'
+                # --- DIRECT URL GENERATION (NO DOWNLOAD) ---
+                # URL 1: Barcode Report
+                url_1 = f"{base_url}/production/requires/bundle_wise_sewing_input_controller.php?data=1*{new_sys_id}*{cbo_logic}*%E2%9D%8F%20Bundle%20Wise%20Sewing%20Input*1*undefined*undefined*undefined&action=emblishment_issue_print_13"
                 
-                # Report 1
-                d1 = f"1*{new_sys_id}*{cbo_logic}*%E2%9D%8F%20Bundle%20Wise%20Sewing%20Input*1*undefined*undefined*undefined"
-                rep1 = session.get(ctrl_url, params={'data': d1, 'action': 'emblishment_issue_print_13'}, headers=headers_rep)
-                f1 = f"Bundle_{new_sys_id}.html"
-                with open(os.path.join(REPORT_DIR, f1), "w", encoding="utf-8") as f: f.write(rep1.text)
-                
-                # Report 2
-                d2 = f"1*{new_sys_id}*{cbo_logic}*%E2%9D%8F%20Bundle%20Wise%20Sewing%20Input*undefined*undefined*undefined*1"
-                rep2 = session.get(ctrl_url, params={'data': d2, 'action': 'sewing_input_challan_print_5'}, headers=headers_rep)
-                f2 = f"Challan_{new_sys_id}.html"
-                with open(os.path.join(REPORT_DIR, f2), "w", encoding="utf-8") as f: f.write(rep2.text)
+                # URL 2: Challan Report
+                url_2 = f"{base_url}/production/requires/bundle_wise_sewing_input_controller.php?data=1*{new_sys_id}*{cbo_logic}*%E2%9D%8F%20Bundle%20Wise%20Sewing%20Input*undefined*undefined*undefined*1&action=sewing_input_challan_print_5"
 
                 return {
                     "status": "success",
                     "challan_no": new_challan,
                     "system_id": new_sys_id,
-                    "report1": f1,
-                    "report2": f2
+                    "report1_url": url_1,  # Direct Link Sent to Frontend
+                    "report2_url": url_2   # Direct Link Sent to Frontend
                 }
             
             elif code == "20": return {"status": "error", "message": "❌ সার্ভার সমস্যা / বান্ডিল অলরেডি পান্স করা হয়েছে!"}
@@ -493,7 +392,7 @@ def process_data(user_input):
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
-# --- APP ROUTES ---
+# --- ROUTES ---
 @app.route('/')
 def index():
     return render_template_string(HTML_TEMPLATE)
@@ -503,10 +402,6 @@ def process():
     data = request.json
     if not data or 'challan' not in data: return jsonify({"status": "error", "message": "No Data"})
     return jsonify(process_data(data['challan']))
-
-@app.route('/reports/<path:filename>')
-def serve_report(filename):
-    return send_from_directory(REPORT_DIR, filename)
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=10000)
