@@ -9,216 +9,302 @@ from urllib3.util.retry import Retry
 # --- CONFIGURATION ---
 app = Flask(__name__)
 
-# --- MODERN UI TEMPLATE (Professional Glassmorphism) ---
+# --- ULTRA MODERN DARK UI TEMPLATE ---
 HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Production Automation | MnM Office</title>
+    <title>Production AI | Sewing Input</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
     
     <style>
         :root {
-            --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            --glass-bg: rgba(255, 255, 255, 0.95);
+            --bg-color: #050505;
+            --card-bg: rgba(20, 20, 20, 0.7);
+            --primary: #00f260;
+            --primary-dark: #0575e6;
+            --accent: #00c6ff;
+            --text-main: #ffffff;
+            --text-muted: #8892b0;
+            --border: rgba(255, 255, 255, 0.1);
         }
 
         body {
-            font-family: 'Outfit', sans-serif;
-            background-image: url('https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=1920&q=80');
-            background-size: cover;
-            background-position: center;
-            min-height: 100vh;
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            background-image: 
+                radial-gradient(at 0% 0%, hsla(253,16%,7%,1) 0, transparent 50%), 
+                radial-gradient(at 50% 0%, hsla(225,39%,30%,1) 0, transparent 50%), 
+                radial-gradient(at 100% 0%, hsla(339,49%,30%,1) 0, transparent 50%);
+            height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
+            overflow: hidden;
             margin: 0;
         }
 
-        .backdrop-overlay {
+        /* Ambient Glow */
+        .glow-effect {
             position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0, 0, 0, 0.5);
-            backdrop-filter: blur(5px);
+            width: 300px;
+            height: 300px;
+            background: linear-gradient(180deg, var(--primary-dark), var(--primary));
+            filter: blur(150px);
+            opacity: 0.2;
             z-index: -1;
+            animation: pulse 10s infinite alternate;
         }
 
         .main-card {
-            background: var(--glass-bg);
+            background: var(--card-bg);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--border);
             border-radius: 24px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
             width: 100%;
-            max-width: 450px;
+            max-width: 420px;
+            padding: 0;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
             overflow: hidden;
-            border: 1px solid rgba(255,255,255,0.6);
+            position: relative;
         }
 
         .card-header-custom {
-            background: var(--primary-gradient);
-            padding: 35px;
+            padding: 40px 30px 20px;
             text-align: center;
-            color: white;
         }
 
-        .app-title { font-weight: 700; font-size: 1.4rem; letter-spacing: 1px; margin-bottom: 5px; }
-        .app-subtitle { font-size: 0.85rem; opacity: 0.9; font-weight: 300; }
+        .app-title {
+            font-family: 'Rajdhani', sans-serif;
+            font-weight: 700;
+            font-size: 2rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            background: linear-gradient(to right, #fff, #a5b4fc);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 5px;
+        }
+
+        .app-status {
+            font-size: 0.8rem;
+            color: var(--primary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .status-dot { width: 8px; height: 8px; background: var(--primary); border-radius: 50%; box-shadow: 0 0 10px var(--primary); }
 
         .card-body-custom { padding: 30px; }
 
-        .form-floating > .form-control {
-            border-radius: 12px;
-            border: 2px solid #e2e8f0;
-            height: 60px;
-            font-size: 1.2rem;
-            font-weight: 700;
-            letter-spacing: 2px;
-            text-align: center;
-            color: #2d3748;
-        }
-        
-        .form-floating > .form-control:focus {
-            border-color: #764ba2;
-            box-shadow: 0 0 0 4px rgba(118, 75, 162, 0.1);
+        .input-group-custom {
+            position: relative;
+            margin-bottom: 25px;
         }
 
-        .btn-process {
-            background: var(--primary-gradient);
-            border: none;
-            height: 55px;
-            border-radius: 12px;
-            font-weight: 600;
-            font-size: 1.1rem;
+        .form-control-custom {
             width: 100%;
-            margin-top: 20px;
-            transition: transform 0.2s;
-        }
-        .btn-process:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(118, 75, 162, 0.3); }
-
-        /* Result Styles */
-        .result-container { display: none; margin-top: 25px; animation: slideUp 0.4s ease-out; }
-        
-        .status-box {
-            padding: 20px; border-radius: 16px; text-align: center;
-        }
-        .status-success { background: #ecfdf5; border: 2px solid #10b981; color: #065f46; }
-        .status-error { background: #fff5f5; border: 2px solid #fc8181; color: #c53030; }
-
-        .challan-badge {
-            background: white; padding: 8px 15px; border-radius: 50px;
-            font-weight: 700; font-size: 1.1rem; color: #333;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.05); display: inline-block; margin: 10px 0;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 18px;
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text-main);
+            text-align: center;
+            letter-spacing: 3px;
+            transition: all 0.3s ease;
+            outline: none;
         }
 
-        .btn-report {
-            padding: 12px; border-radius: 10px; font-size: 0.9rem; font-weight: 600;
-            display: flex; align-items: center; justify-content: center;
-            text-decoration: none; transition: all 0.2s; width: 100%; margin-top: 10px;
+        .form-control-custom:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 20px rgba(0, 198, 255, 0.2);
+            background: rgba(255, 255, 255, 0.05);
         }
-        .btn-rep-1 { background: white; border: 2px solid #3b82f6; color: #3b82f6; }
-        .btn-rep-1:hover { background: #3b82f6; color: white; }
-        .btn-rep-2 { background: #1f2937; border: 2px solid #1f2937; color: white; }
-        .btn-rep-2:hover { background: #374151; border-color: #374151; }
+
+        .form-control-custom::placeholder { color: rgba(255,255,255,0.2); font-size: 1.2rem; letter-spacing: 1px; font-weight: 400; }
+
+        .btn-action {
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(90deg, #00c6ff 0%, #0072ff 100%);
+            border: none;
+            border-radius: 12px;
+            color: white;
+            font-weight: 600;
+            font-size: 1rem;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-action:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(0, 114, 255, 0.4);
+        }
+
+        .result-box {
+            display: none;
+            margin-top: 30px;
+            padding: 20px;
+            border-radius: 16px;
+            text-align: center;
+            animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .success-box { background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); }
+        .error-box { background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); }
+
+        .result-title { font-weight: 700; margin-bottom: 5px; font-size: 1.2rem; }
+        .text-success-custom { color: #34d399; }
+        .text-error-custom { color: #f87171; }
+
+        .info-pill {
+            background: rgba(255,255,255,0.05);
+            padding: 8px 15px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            margin: 10px 0;
+            display: inline-block;
+            font-family: 'Rajdhani', sans-serif;
+        }
+
+        .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 15px; }
+
+        .btn-outline {
+            background: transparent;
+            border: 1px solid rgba(255,255,255,0.2);
+            color: var(--text-main);
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            text-decoration: none;
+            transition: 0.3s;
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+        }
+
+        .btn-outline:hover { background: rgba(255,255,255,0.1); border-color: var(--text-main); color: white; }
 
         .loader-overlay {
-            display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(255,255,255,0.9); z-index: 10;
-            flex-direction: column; align-items: center; justify-content: center;
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(5, 5, 5, 0.85); backdrop-filter: blur(5px);
+            z-index: 100; display: none; flex-direction: column;
+            align-items: center; justify-content: center;
         }
-        .spinner-custom {
-            width: 40px; height: 40px; border: 4px solid #f3f3f3;
-            border-top: 4px solid #764ba2; border-radius: 50%; animation: spin 1s linear infinite;
+
+        .cyber-spinner {
+            width: 50px; height: 50px;
+            border: 3px solid transparent;
+            border-top: 3px solid var(--accent);
+            border-right: 3px solid var(--primary);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            box-shadow: 0 0 20px rgba(0, 198, 255, 0.5);
         }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        
-        .footer { text-align: center; margin-top: 25px; font-size: 0.75rem; color: #a0aec0; }
+
+        .footer {
+            margin-top: 30px; font-size: 0.75rem; color: rgba(255,255,255,0.3); text-align: center;
+        }
+
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+        @keyframes pulse { 0% { transform: scale(1); opacity: 0.2; } 100% { transform: scale(1.2); opacity: 0.4; } }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
     </style>
 </head>
 <body>
 
-    <div class="backdrop-overlay"></div>
+    <div class="glow-effect"></div>
 
     <div class="main-card">
-        <div class="loader-overlay" id="mainLoader">
-            <div class="spinner-custom mb-3"></div>
-            <h6 class="text-muted fw-bold">PROCESSING...</h6>
+        <div class="loader-overlay" id="loader">
+            <div class="cyber-spinner"></div>
+            <div style="margin-top: 15px; color: var(--accent); font-family: 'Rajdhani'; letter-spacing: 2px;">PROCESSING...</div>
         </div>
 
         <div class="card-header-custom">
-            <div class="app-title"><i class="fa-solid fa-industry me-2"></i>SEWING INPUT</div>
-            <div class="app-subtitle">Smart Automation System v5.0</div>
+            <div class="app-title">SEWING<span style="color:var(--accent)">INPUT</span></div>
+            <div class="app-status"><div class="status-dot"></div> System Active</div>
         </div>
 
         <div class="card-body-custom">
-            <form id="entryForm">
-                <div class="form-floating">
-                    <input type="number" class="form-control" id="challanInput" placeholder="Challan No" required autocomplete="off">
-                    <label class="text-center w-100 text-muted small fw-bold">ENTER CHALLAN NO</label>
+            <form id="mainForm">
+                <div class="input-group-custom">
+                    <input type="number" id="challanNo" class="form-control-custom" placeholder="ENTER CHALLAN" required autocomplete="off">
                 </div>
                 
-                <button type="submit" class="btn-process">
-                    START PROCESS <i class="fa-solid fa-arrow-right ms-2"></i>
+                <button type="submit" class="btn-action">
+                    Execute Input <i class="fa-solid fa-bolt ms-2"></i>
                 </button>
             </form>
 
-            <div id="successArea" class="result-container">
-                <div class="status-box status-success">
-                    <i class="fa-solid fa-circle-check fa-3x mb-2 text-success"></i>
-                    <h4 class="fw-bold m-0">SUCCESS!</h4>
-                    <div class="challan-badge" id="successChallan">---</div>
-                    
-                    <div class="row g-2 mt-2">
-                        <div class="col-6">
-                            <a href="#" id="linkRep1" target="_blank" class="btn-report btn-rep-1">
-                                <i class="fa-solid fa-barcode me-1"></i> Barcode
-                            </a>
-                        </div>
-                        <div class="col-6">
-                            <a href="#" id="linkRep2" target="_blank" class="btn-report btn-rep-2">
-                                <i class="fa-solid fa-print me-1"></i> Challan
-                            </a>
-                        </div>
-                    </div>
-                    
-                    <button onclick="resetUI()" class="btn btn-link text-muted text-decoration-none mt-3 btn-sm">
-                        Process Another
-                    </button>
+            <div id="successBox" class="result-box success-box">
+                <div class="text-success-custom mb-2"><i class="fa-regular fa-circle-check fa-3x"></i></div>
+                <div class="result-title text-success-custom">INPUT SUCCESSFUL</div>
+                
+                <div class="info-pill" id="successChallan">---</div>
+                <div class="small text-muted" id="sysId">---</div>
+
+                <div class="btn-grid">
+                    <a href="#" id="link1" target="_blank" class="btn-outline">
+                        <i class="fa-solid fa-list"></i> Bundle List
+                    </a>
+                    <a href="#" id="link2" target="_blank" class="btn-outline">
+                        <i class="fa-solid fa-file-invoice"></i> Challan View
+                    </a>
+                </div>
+
+                <div class="mt-3">
+                    <a href="#" onclick="resetUI()" class="text-muted small text-decoration-none hover-white">
+                        <i class="fa-solid fa-rotate"></i> Process Another
+                    </a>
                 </div>
             </div>
 
-            <div id="errorArea" class="result-container">
-                <div class="status-box status-error">
-                    <i class="fa-solid fa-circle-xmark fa-3x mb-2 text-danger"></i>
-                    <h5 class="fw-bold">FAILED</h5>
-                    <p class="small mb-0 fw-bold" id="errorMsg">Unknown Error</p>
-                    <button onclick="resetUI()" class="btn btn-danger btn-sm mt-3 px-4 rounded-pill">Retry</button>
-                </div>
+            <div id="errorBox" class="result-box error-box">
+                <div class="text-error-custom mb-2"><i class="fa-solid fa-triangle-exclamation fa-3x"></i></div>
+                <div class="result-title text-error-custom">FAILED</div>
+                <p class="small text-white-50 mb-3" id="errorMsg">Unknown Error</p>
+                <button onclick="resetUI()" class="btn-outline w-100" style="border-color: #ef4444; color: #ef4444;">TRY AGAIN</button>
             </div>
 
-            <div class="footer">&copy; 2025 MnM Office Automation</div>
+            <div class="footer">
+                SECURE SERVER CONNECTION v5.0
+            </div>
         </div>
     </div>
 
     <script>
-        const form = document.getElementById('entryForm');
-        const loader = document.getElementById('mainLoader');
-        const successArea = document.getElementById('successArea');
-        const errorArea = document.getElementById('errorArea');
-        const input = document.getElementById('challanInput');
+        const form = document.getElementById('mainForm');
+        const input = document.getElementById('challanNo');
+        const loader = document.getElementById('loader');
+        const successBox = document.getElementById('successBox');
+        const errorBox = document.getElementById('errorBox');
 
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
             const val = input.value;
             if(!val) return;
 
-            loader.style.display = 'flex';
-            successArea.style.display = 'none';
-            errorArea.style.display = 'none';
+            // UI Changes
             input.blur();
+            loader.style.display = 'flex';
+            successBox.style.display = 'none';
+            errorBox.style.display = 'none';
 
             try {
                 const req = await fetch('/process', {
@@ -228,30 +314,33 @@ HTML_TEMPLATE = """
                 });
                 const res = await req.json();
 
+                loader.style.display = 'none';
+
                 if(res.status === 'success') {
                     document.getElementById('successChallan').innerText = res.challan_no;
+                    document.getElementById('sysId').innerText = "SYS ID: " + res.system_id;
                     
-                    // --- DIRECT URL ASSIGNMENT ---
-                    document.getElementById('linkRep1').href = res.report1_url;
-                    document.getElementById('linkRep2').href = res.report2_url;
+                    // Set Links
+                    document.getElementById('link1').href = res.report1_url;
+                    document.getElementById('link2').href = res.report2_url;
                     
-                    successArea.style.display = 'block';
+                    successBox.style.display = 'block';
                 } else {
                     document.getElementById('errorMsg').innerText = res.message;
-                    errorArea.style.display = 'block';
+                    errorBox.style.display = 'block';
                 }
+
             } catch (err) {
-                document.getElementById('errorMsg').innerText = "Network Error";
-                errorArea.style.display = 'block';
-            } finally {
                 loader.style.display = 'none';
+                document.getElementById('errorMsg').innerText = "Network Error / Server Offline";
+                errorBox.style.display = 'block';
             }
         });
 
         function resetUI() {
             input.value = '';
-            successArea.style.display = 'none';
-            errorArea.style.display = 'none';
+            successBox.style.display = 'none';
+            errorBox.style.display = 'none';
             input.focus();
         }
     </script>
@@ -279,7 +368,7 @@ def process_data(user_input):
         # 1. Login
         session.post(f"{base_url}/login.php", data={'txt_userid': 'input1.clothing-cutting', 'txt_password': '123456', 'submit': 'Login'}, headers=headers_common)
 
-        # 2. Session Activation
+        # 2. Session Activate
         headers_menu = headers_common.copy()
         headers_menu['Referer'] = f"{base_url}/production/bundle_wise_sewing_input.php?permission=1_1_2_1"
         try:
@@ -287,7 +376,7 @@ def process_data(user_input):
             session.get(f"{base_url}/includes/common_functions_for_js.php?data=724_7_406&action=create_menu_session", headers=headers_menu)
         except: pass
 
-        # 3. Logic & Headers
+        # 3. Logic
         cbo_logic = '1'
         if user_input.startswith('4'): cbo_logic = '4'
         elif user_input.startswith('3'): cbo_logic = '2'
@@ -297,10 +386,10 @@ def process_data(user_input):
         headers_ajax['X-Requested-With'] = 'XMLHttpRequest'
         if 'Content-Type' in headers_ajax: del headers_ajax['Content-Type']
 
-        # 4. Search & Extract
+        # 4. Search
         res = session.get(ctrl_url, params={'data': f"{user_input}_0__{cbo_logic}_2__1_", 'action': 'create_challan_search_list_view'}, headers=headers_ajax)
         mid = re.search(r"js_set_value\((\d+)\)", res.text)
-        if not mid: return {"status": "error", "message": "❌ Invalid Challan"}
+        if not mid: return {"status": "error", "message": "❌ Invalid Challan / No Data"}
         sys_id = mid.group(1)
 
         res_pop = session.post(ctrl_url, params={'data': sys_id, 'action': 'populate_data_from_challan_popup'}, data={'rndval': int(time.time()*1000)}, headers=headers_common)
@@ -311,16 +400,11 @@ def process_data(user_input):
 
         floor = get_val(r"\$\('#cbo_floor'\)\.val\('([^']*)'\)", res_pop.text)
         line = get_val(r"\$\('#cbo_line_no'\)\.val\('([^']*)'\)", res_pop.text)
-        
-        # Date Logic
-        r_date = get_val(r"\$\('#txt_issue_date'\)\.val\('([^']*)'\)", res_pop.text, datetime.now().strftime("%d-%b-%Y"))
-        try: fmt_date = datetime.strptime(r_date, "%d-%m-%Y").strftime("%d-%b-%Y")
-        except: fmt_date = r_date
 
         # Bundles
         res_bun = session.get(ctrl_url, params={'data': sys_id, 'action': 'bundle_nos'}, headers=headers_ajax)
         raw_bun = res_bun.text.split("**")[0]
-        if not raw_bun: return {"status": "error", "message": "❌ No Bundles Found"}
+        if not raw_bun: return {"status": "error", "message": "❌ Empty Bundle List"}
 
         res_tbl = session.get(ctrl_url, params={'data': f"{raw_bun}**0**{sys_id}**{cbo_logic}**{line}", 'action': 'populate_bundle_data_update'}, headers=headers_ajax)
         rows = res_tbl.text.split('<tr')
@@ -336,8 +420,13 @@ def process_data(user_input):
                 'cutNo': get_val(r"name=\"cutNo\[\]\".*?value=\"([^\"]+)\"", r), 'isRescan': get_val(r"name=\"isRescan\[\]\".*?value=\"(\d+)\"", r)
             })
 
-        # 5. Save
-        curr_time = datetime.now().strftime("%H:%M")
+        # 5. Save (With Current Date/Time Fix)
+        # ---------------------------------------------
+        now = datetime.now()
+        fmt_date = now.strftime("%d-%b-%Y") # Current Date e.g. 15-Dec-2025
+        curr_time = now.strftime("%H:%M")   # Current Time 24h e.g. 14:30
+        # ---------------------------------------------
+
         payload = {
             'action': 'save_update_delete', 'operation': '0', 'tot_row': str(len(b_data)),
             'garments_nature': "'2'", 'cbo_company_name': f"'{cbo_logic}'", 'sewing_production_variable': "'3'",
@@ -358,6 +447,7 @@ def process_data(user_input):
 
         headers_save = headers_common.copy()
         headers_save['Referer'] = f"{base_url}/production/bundle_wise_sewing_input.php?permission=1_1_2_1"
+        
         save_res = session.post(f"{base_url}/production/requires/bundle_wise_sewing_input_controller.php", data=payload, headers=headers_save)
         
         if "**" in save_res.text:
@@ -368,23 +458,20 @@ def process_data(user_input):
                 new_sys_id = parts[1]
                 new_challan = parts[2] if len(parts) > 2 else "Sewing Challan"
                 
-                # --- DIRECT URL GENERATION (NO DOWNLOAD) ---
-                # URL 1: Barcode Report
-                url_1 = f"{base_url}/production/requires/bundle_wise_sewing_input_controller.php?data=1*{new_sys_id}*{cbo_logic}*%E2%9D%8F%20Bundle%20Wise%20Sewing%20Input*1*undefined*undefined*undefined&action=emblishment_issue_print_13"
-                
-                # URL 2: Challan Report
-                url_2 = f"{base_url}/production/requires/bundle_wise_sewing_input_controller.php?data=1*{new_sys_id}*{cbo_logic}*%E2%9D%8F%20Bundle%20Wise%20Sewing%20Input*undefined*undefined*undefined*1&action=sewing_input_challan_print_5"
+                # Report Links
+                u1 = f"{base_url}/production/requires/bundle_wise_sewing_input_controller.php?data=1*{new_sys_id}*{cbo_logic}*%E2%9D%8F%20Bundle%20Wise%20Sewing%20Input*1*undefined*undefined*undefined&action=emblishment_issue_print_13"
+                u2 = f"{base_url}/production/requires/bundle_wise_sewing_input_controller.php?data=1*{new_sys_id}*{cbo_logic}*%E2%9D%8F%20Bundle%20Wise%20Sewing%20Input*undefined*undefined*undefined*1&action=sewing_input_challan_print_5"
 
                 return {
                     "status": "success",
                     "challan_no": new_challan,
                     "system_id": new_sys_id,
-                    "report1_url": url_1,  # Direct Link Sent to Frontend
-                    "report2_url": url_2   # Direct Link Sent to Frontend
+                    "report1_url": u1,
+                    "report2_url": u2
                 }
             
             elif code == "20": return {"status": "error", "message": "❌ সার্ভার সমস্যা / বান্ডিল অলরেডি পান্স করা হয়েছে!"}
-            elif code == "10": return {"status": "error", "message": "❌ Validation Error (10). Check Line/Floor."}
+            elif code == "10": return {"status": "error", "message": "❌ Validation Error (10). Check Allocation."}
             else: return {"status": "error", "message": f"Server Error Code: {code}"}
         
         return {"status": "error", "message": f"Save Failed: {save_res.status_code}"}
