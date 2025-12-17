@@ -424,7 +424,7 @@ def process_data(user_input):
         # ---------------------------------------------
         now = datetime.now()
         fmt_date = now.strftime("%d-%b-%Y") # Current Date e.g. 15-Dec-2025
-        curr_time = now.strftime("%H:%M")   # Current Time 24h e.g. 14:30
+        curr_time = now.strftime("%H:%M")   # Current Time 24h e.g. 09:55
         # ---------------------------------------------
 
         payload = {
@@ -492,6 +492,7 @@ def process():
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=10000)
+
 
 
 
