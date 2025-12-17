@@ -282,7 +282,7 @@ HTML_TEMPLATE = """
             </div>
 
             <div class="footer">
-                SECURE SERVER CONNECTION v2.5 (BD TIME)
+                < / > MEHEDI HASAN
             </div>
         </div>
     </div>
@@ -493,4 +493,5 @@ def process():
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=10000)
+
 
