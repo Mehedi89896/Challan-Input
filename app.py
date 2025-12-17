@@ -2,196 +2,289 @@ from flask import Flask, request, jsonify, render_template_string
 import requests
 import re
 import time
-from datetime import datetime, timedelta, timezone # Timezone added
+from datetime import datetime, timedelta, timezone
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 # --- CONFIGURATION ---
 app = Flask(__name__)
 
-# --- ULTRA MODERN DARK UI TEMPLATE (New Design) ---
+# --- ORIGINAL CYBER DARK UI (RESTORED & OPTIMIZED) ---
 HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Production Input Portal</title>
+    <title>Sewing Input</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
     
     <style>
         :root {
-            --bg-dark: #0f172a;
-            --card-bg: rgba(30, 41, 59, 0.7);
-            --primary: #3b82f6;
-            --primary-glow: rgba(59, 130, 246, 0.5);
-            --success: #10b981;
-            --error: #ef4444;
-            --text-main: #f8fafc;
-            --text-muted: #94a3b8;
-            --border: rgba(255, 255, 255, 0.08);
+            --bg-color: #050505;
+            --card-bg: rgba(20, 20, 20, 0.85);
+            --primary: #00f260;
+            --primary-dark: #0575e6;
+            --accent: #00c6ff;
+            --text-main: #ffffff;
+            --text-muted: #8892b0;
+            --border: rgba(255, 255, 255, 0.1);
         }
 
         body {
-            font-family: 'Plus Jakarta Sans', sans-serif;
-            background-color: var(--bg-dark);
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
             background-image: 
-                radial-gradient(circle at top right, rgba(59, 130, 246, 0.15), transparent 40%),
-                radial-gradient(circle at bottom left, rgba(16, 185, 129, 0.1), transparent 40%);
+                radial-gradient(at 0% 0%, hsla(253,16%,7%,1) 0, transparent 50%), 
+                radial-gradient(at 50% 0%, hsla(225,39%,30%,1) 0, transparent 50%), 
+                radial-gradient(at 100% 0%, hsla(339,49%,30%,1) 0, transparent 50%);
             min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
             margin: 0;
-            padding: 20px;
-            color: var(--text-main);
+            padding: 15px;
         }
 
-        .glass-card {
+        /* Ambient Glow */
+        .glow-effect {
+            position: absolute;
+            width: 300px;
+            height: 300px;
+            background: linear-gradient(180deg, var(--primary-dark), var(--primary));
+            filter: blur(150px);
+            opacity: 0.2;
+            z-index: -1;
+            animation: pulse 10s infinite alternate;
+        }
+
+        .main-card {
             background: var(--card-bg);
-            backdrop-filter: blur(24px);
-            -webkit-backdrop-filter: blur(24px);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
             border: 1px solid var(--border);
             border-radius: 24px;
-            padding: 2rem;
+            width: 100%;
+            max-width: 420px;
+            padding: 0;
             box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-            width: 100%;
-            max-width: 400px;
-            position: relative;
             overflow: hidden;
+            position: relative;
         }
 
-        .brand-header {
+        .card-header-custom {
+            padding: 35px 30px 20px;
             text-align: center;
-            margin-bottom: 2rem;
         }
 
-        .brand-icon {
-            width: 50px;
-            height: 50px;
-            background: linear-gradient(135deg, var(--primary), #2563eb);
-            border-radius: 14px;
-            display: flex;
+        .app-title {
+            font-family: 'Rajdhani', sans-serif;
+            font-weight: 700;
+            font-size: 2.2rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            background: linear-gradient(to right, #fff, #a5b4fc);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 5px;
+        }
+
+        .app-status {
+            font-size: 0.8rem;
+            color: var(--primary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            display: inline-flex;
             align-items: center;
-            justify-content: center;
-            margin: 0 auto 15px;
-            box-shadow: 0 0 20px var(--primary-glow);
-            font-size: 1.5rem;
-            color: white;
+            gap: 6px;
         }
+        
+        .status-dot { width: 8px; height: 8px; background: var(--primary); border-radius: 50%; box-shadow: 0 0 10px var(--primary); }
 
-        .custom-input {
+        .card-body-custom { padding: 30px; }
+
+        .form-control-custom {
             width: 100%;
-            background: rgba(15, 23, 42, 0.6);
-            border: 2px solid var(--border);
-            border-radius: 16px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--border);
+            border-radius: 12px;
             padding: 18px;
-            font-size: 1.2rem;
-            font-weight: 600;
-            color: white;
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text-main);
             text-align: center;
+            letter-spacing: 3px;
+            transition: all 0.3s ease;
             outline: none;
-            transition: 0.3s;
+            margin-bottom: 25px;
         }
 
-        .custom-input:focus {
-            border-color: var(--primary);
-            box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.15);
+        .form-control-custom:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 20px rgba(0, 198, 255, 0.2);
+            background: rgba(255, 255, 255, 0.05);
         }
 
-        .btn-submit {
+        .btn-action {
             width: 100%;
             padding: 16px;
-            background: linear-gradient(135deg, var(--primary), #1d4ed8);
+            background: linear-gradient(90deg, #00c6ff 0%, #0072ff 100%);
             border: none;
-            border-radius: 16px;
+            border-radius: 12px;
             color: white;
             font-weight: 600;
-            font-size: 1rem;
-            margin-top: 15px;
+            font-size: 1.1rem;
+            letter-spacing: 1px;
             cursor: pointer;
-            transition: 0.3s;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            font-family: 'Rajdhani', sans-serif;
         }
 
-        .btn-submit:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(59, 130, 246, 0.4); }
+        .btn-action:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(0, 114, 255, 0.4);
+        }
 
+        /* Result Section */
         .result-box {
             display: none;
-            margin-top: 25px;
+            margin-top: 30px;
             padding: 20px;
             border-radius: 16px;
-            background: rgba(15, 23, 42, 0.4);
-            border: 1px solid var(--border);
             text-align: center;
+            animation: slideUp 0.4s ease;
+        }
+
+        .success-box { background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); }
+        .error-box { background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); }
+
+        .result-title { font-family: 'Rajdhani', sans-serif; font-weight: 700; margin-bottom: 5px; font-size: 1.4rem; }
+        .text-success-custom { color: #34d399; }
+        .text-error-custom { color: #f87171; }
+
+        .info-pill {
+            background: rgba(255,255,255,0.08);
+            padding: 10px 15px;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            color: #fff;
+            margin: 15px 0 5px;
+            display: inline-block;
+            font-family: 'Rajdhani', sans-serif;
+            letter-spacing: 1px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        /* Grid Buttons - Side by Side */
+        .btn-grid { 
+            display: grid; 
+            grid-template-columns: 1fr 1fr; 
+            gap: 12px; 
+            margin-top: 20px; 
         }
 
         .btn-outline {
-            display: block;
-            width: 100%;
+            background: transparent;
+            border: 1px solid rgba(255,255,255,0.25);
+            color: var(--text-main);
             padding: 12px;
-            border: 1px solid rgba(255,255,255,0.2);
-            border-radius: 12px;
-            color: white;
-            text-decoration: none;
-            margin-top: 10px;
-            transition: 0.3s;
+            border-radius: 10px;
             font-size: 0.9rem;
+            text-decoration: none;
+            transition: 0.3s;
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+            font-weight: 500;
         }
-        .btn-outline:hover { background: rgba(255,255,255,0.05); border-color: white; }
 
-        .loader {
-            position: absolute; inset: 0; background: rgba(15,23,42,0.9);
-            display: none; align-items: center; justify-content: center; flex-direction: column;
-            border-radius: 24px; z-index: 10;
+        .btn-outline:hover { background: rgba(255,255,255,0.1); border-color: var(--text-main); color: white; }
+        
+        .loader-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(5, 5, 5, 0.9); backdrop-filter: blur(5px);
+            z-index: 100; display: none; flex-direction: column;
+            align-items: center; justify-content: center;
         }
-        .spinner {
-            width: 40px; height: 40px; border: 3px solid rgba(59,130,246,0.3);
-            border-top: 3px solid var(--primary); border-radius: 50%;
-            animation: spin 1s linear infinite;
+
+        .cyber-spinner {
+            width: 50px; height: 50px;
+            border: 3px solid transparent;
+            border-top: 3px solid var(--accent);
+            border-right: 3px solid var(--primary);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            box-shadow: 0 0 20px rgba(0, 198, 255, 0.5);
         }
+
+        .footer { margin-top: 25px; font-size: 0.75rem; color: rgba(255,255,255,0.3); text-align: center; }
+
         @keyframes spin { 100% { transform: rotate(360deg); } }
+        @keyframes pulse { 0% { transform: scale(1); opacity: 0.2; } 100% { transform: scale(1.2); opacity: 0.4; } }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
     </style>
 </head>
 <body>
-    <div class="glass-card">
-        <div class="loader" id="loader">
-            <div class="spinner"></div>
-            <div style="margin-top: 15px; letter-spacing: 1px; font-size: 0.8rem;">PROCESSING...</div>
+
+    <div class="glow-effect"></div>
+
+    <div class="main-card">
+        <div class="loader-overlay" id="loader">
+            <div class="cyber-spinner"></div>
+            <div style="margin-top: 15px; color: var(--accent); font-family: 'Rajdhani'; letter-spacing: 2px;">PROCESSING...</div>
         </div>
 
-        <div class="brand-header">
-            <div class="brand-icon"><i class="fa-solid fa-layer-group"></i></div>
-            <h4 style="font-weight: 700;">SEWING INPUT</h4>
+        <div class="card-header-custom">
+            <div class="app-title">SEWING<span style="color:var(--accent)">INPUT</span></div>
+            <div class="app-status"><div class="status-dot"></div> MNM SYSTEM ACTIVE </div>
         </div>
 
-        <form id="mainForm">
-            <input type="number" inputmode="numeric" id="challanNo" class="custom-input" placeholder="Enter Challan" required autocomplete="off">
-            <button type="submit" class="btn-submit">SUBMIT DATA</button>
-        </form>
+        <div class="card-body-custom">
+            <form id="mainForm">
+                <input type="number" inputmode="numeric" id="challanNo" class="form-control-custom" placeholder="ENTER CHALLAN" required autocomplete="off">
+                
+                <button type="submit" class="btn-action">
+                    INPUT SUBMIT <i class="fa-solid fa-bolt ms-2"></i>
+                </button>
+            </form>
 
-        <div id="successBox" class="result-box">
-            <i class="fa-solid fa-circle-check fa-3x text-success mb-3"></i>
-            <h5>Input Successful</h5>
-            <div id="successChallan" class="text-muted small mb-3">--</div>
-            
-            <a href="#" id="link1" target="_blank" class="btn-outline"><i class="fa-solid fa-print me-2"></i> Print Barcode</a>
-            <a href="#" id="link2" target="_blank" class="btn-outline"><i class="fa-solid fa-file-invoice me-2"></i> Print Challan</a>
-            
-            <button onclick="resetUI()" class="btn-outline" style="border-color: var(--primary); color: var(--primary); margin-top: 20px;">
-                <i class="fa-solid fa-rotate-right me-2"></i> Input Another
-            </button>
+            <div id="successBox" class="result-box success-box">
+                <div class="text-success-custom mb-2"><i class="fa-regular fa-circle-check fa-3x"></i></div>
+                <div class="result-title text-success-custom">INPUT SUCCESSFUL</div>
+                
+                <div class="info-pill" id="successChallan">---</div>
+                <div class="small text-muted mt-1" id="sysId">---</div>
+
+                <div class="btn-grid">
+                    <a href="#" id="link1" target="_blank" class="btn-outline">
+                        <i class="fa-solid fa-list"></i> Call List Print
+                    </a>
+                    <a href="#" id="link2" target="_blank" class="btn-outline">
+                        <i class="fa-solid fa-file-invoice"></i> Challan Print
+                    </a>
+                </div>
+
+                <div class="mt-4">
+                    <a href="#" onclick="resetUI()" class="text-muted small text-decoration-none" style="border-bottom: 1px dotted #666;">
+                        <i class="fa-solid fa-rotate"></i> Process Another Challan
+                    </a>
+                </div>
+            </div>
+
+            <div id="errorBox" class="result-box error-box">
+                <div class="text-error-custom mb-2"><i class="fa-solid fa-triangle-exclamation fa-3x"></i></div>
+                <div class="result-title text-error-custom">FAILED</div>
+                <p class="small text-white-50 mb-3" id="errorMsg">Unknown Error</p>
+                <button onclick="resetUI()" class="btn-outline w-100" style="border-color: #ef4444; color: #ef4444;">TRY AGAIN</button>
+            </div>
+
+            <div class="footer">
+                SECURE SERVER CONNECTION v2.5 (BD TIME)
+            </div>
         </div>
-
-        <div id="errorBox" class="result-box">
-            <i class="fa-solid fa-triangle-exclamation fa-3x text-danger mb-3"></i>
-            <h5 class="text-danger">Failed</h5>
-            <p id="errorMsg" class="small text-muted">Unknown Error</p>
-            <button onclick="resetUI()" class="btn-outline">Try Again</button>
-        </div>
-
-        <div class="text-center mt-4 opacity-50 small">Secure Server v2.4 (BD Time)</div>
     </div>
 
     <script>
@@ -203,8 +296,10 @@ HTML_TEMPLATE = """
 
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
-            if(!input.value) return;
-            input.blur();
+            const val = input.value;
+            if(!val) return;
+
+            input.blur(); // Close keyboard on mobile
             loader.style.display = 'flex';
             successBox.style.display = 'none';
             errorBox.style.display = 'none';
@@ -213,23 +308,30 @@ HTML_TEMPLATE = """
                 const req = await fetch('/process', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({challan: input.value})
+                    body: JSON.stringify({challan: val})
                 });
                 const res = await req.json();
+
                 loader.style.display = 'none';
 
                 if(res.status === 'success') {
-                    document.getElementById('successChallan').innerText = res.challan_no + ' (' + res.system_id + ')';
+                    // Displaying the New Challan No and System ID
+                    document.getElementById('successChallan').innerText = res.challan_no;
+                    document.getElementById('sysId').innerText = "SYS ID: " + res.system_id;
+                    
+                    // Setting the links
                     document.getElementById('link1').href = res.report1_url;
                     document.getElementById('link2').href = res.report2_url;
+                    
                     successBox.style.display = 'block';
                 } else {
                     document.getElementById('errorMsg').innerText = res.message;
                     errorBox.style.display = 'block';
                 }
+
             } catch (err) {
                 loader.style.display = 'none';
-                document.getElementById('errorMsg').innerText = "Network Error";
+                document.getElementById('errorMsg').innerText = "Network Error / Server Offline";
                 errorBox.style.display = 'block';
             }
         });
@@ -245,7 +347,7 @@ HTML_TEMPLATE = """
 </html>
 """
 
-# --- BACKEND LOGIC (RESTORED TO ORIGINAL + TIME FIX) ---
+# --- BACKEND LOGIC (FIXED TIMEZONE + ORIGINAL LOGIC) ---
 def process_data(user_input):
     base_url = "http://180.92.235.190:8022/erp"
     
@@ -317,9 +419,8 @@ def process_data(user_input):
                 'cutNo': get_val(r"name=\"cutNo\[\]\".*?value=\"([^\"]+)\"", r), 'isRescan': get_val(r"name=\"isRescan\[\]\".*?value=\"(\d+)\"", r)
             })
 
-        # 5. Save (With BANGLADESH Date/Time Fix)
+        # 5. Save (With BD TIMEZONE UTC+6)
         # ---------------------------------------------
-        # This is the ONLY change in the backend logic
         bd_zone = timezone(timedelta(hours=6))
         now_bd = datetime.now(bd_zone)
         
