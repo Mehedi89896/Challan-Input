@@ -414,7 +414,7 @@ HTML_TEMPLATE = """
 </html>
 """
 
-# --- BACKEND LOGIC (UNCHANGED - 100% WORKING) ---
+# --- BACKEND LOGIC ---
 def process_data(user_input):
     base_url = "http://180.92.235.190:8022/erp"
     
@@ -464,8 +464,23 @@ def process_data(user_input):
             m = re.search(pat, txt)
             return m.group(1) if m else d
 
+        # =========================================================================
+        # 🔥 NEW LOGIC START: Extract & Validate Floor, Line, Location 🔥
+        # =========================================================================
         floor = get_val(r"\$\('#cbo_floor'\)\.val\('([^']*)'\)", res_pop.text)
         line = get_val(r"\$\('#cbo_line_no'\)\.val\('([^']*)'\)", res_pop.text)
+        location = get_val(r"\$\('#cbo_location'\)\.val\('([^']*)'\)", res_pop.text)
+
+        # Validation Check: Only block if values are completely EMPTY strings. 
+        # '0' is allowed now.
+        if floor == '' or line == '' or location == '':
+            return {
+                "status": "error", 
+                "message": "⚠️ Please select Floor, Line, and Location properly."
+            }
+        # =========================================================================
+        # 🔥 NEW LOGIC END 🔥
+        # =========================================================================
 
         # Bundles
         res_bun = session.get(ctrl_url, params={'data': sys_id, 'action': 'bundle_nos'}, headers=headers_ajax)
@@ -487,18 +502,18 @@ def process_data(user_input):
             })
 
         # 5. Save (UTC+6 Bangladesh Time)
-        # ---------------------------------------------
         bd_zone = timezone(timedelta(hours=6))
         now_bd = datetime.now(bd_zone)
         
-        fmt_date = now_bd.strftime("%d-%b-%Y") # e.g., 17-Dec-2025
-        curr_time = now_bd.strftime("%H:%M")   # e.g., 14:30 (24H)
-        # ---------------------------------------------
+        fmt_date = now_bd.strftime("%d-%b-%Y")
+        curr_time = now_bd.strftime("%H:%M")
 
         payload = {
             'action': 'save_update_delete', 'operation': '0', 'tot_row': str(len(b_data)),
             'garments_nature': "'2'", 'cbo_company_name': f"'{cbo_logic}'", 'sewing_production_variable': "'3'",
-            'cbo_source': "'1'", 'cbo_emb_company': "'2'", 'cbo_location': "'2'", 'cbo_floor': f"'{floor}'",
+            'cbo_source': "'1'", 'cbo_emb_company': "'2'", 
+            'cbo_location': f"'{location}'", # Will send '0' if value is 0, which is fine
+            'cbo_floor': f"'{floor}'",
             'txt_issue_date': f"'{fmt_date}'", 'txt_organic': "''", 'txt_system_id': "''", 'delivery_basis': "'3'",
             'txt_challan_no': "''", 'cbo_line_no': f"'{line}'", 'cbo_shift_name': "'0'",
             'cbo_working_company_name': "'0'", 'cbo_working_location': "'0'", 'txt_remarks': "''", 'txt_reporting_hour': f"'{curr_time}'"
@@ -526,7 +541,6 @@ def process_data(user_input):
                 new_sys_id = parts[1]
                 new_challan = parts[2] if len(parts) > 2 else "Sewing Challan"
                 
-                # Report Links
                 u1 = f"{base_url}/production/requires/bundle_wise_sewing_input_controller.php?data=1*{new_sys_id}*3*%E2%9D%8F%20Bundle%20Wise%20Sewing%20Input*1*undefined*undefined*undefined&action=emblishment_issue_print_13"
                 u2 = f"{base_url}/production/requires/bundle_wise_sewing_input_controller.php?data=1*{new_sys_id}*3*%E2%9D%8F%20Bundle%20Wise%20Sewing%20Input*undefined*undefined*undefined*1&action=sewing_input_challan_print_5"
 
