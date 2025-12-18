@@ -9,7 +9,7 @@ from urllib3.util.retry import Retry
 # --- CONFIGURATION ---
 app = Flask(__name__)
 
-# --- MNM SOFTWARE DESIGN (ORIGINAL UI RESTORED) ---
+# --- MNM SOFTWARE DESIGN (Glassmorphism UI) ---
 HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="en">
@@ -37,323 +37,137 @@ HTML_TEMPLATE = """
             --transition-smooth: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
-        * { 
-            margin: 0; padding: 0; box-sizing: border-box; 
-            font-family: 'Inter', sans-serif; 
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
 
         body {
-            background: var(--bg-body);
-            color: var(--text-primary);
-            min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            overflow-x: hidden;
-            position: relative;
+            background: var(--bg-body); color: var(--text-primary); min-height: 100vh;
+            display: flex; justify-content: center; align-items: center; overflow-x: hidden; position: relative;
         }
 
         /* Animated Background Orbs */
         .bg-orb {
-            position: fixed;
-            border-radius: 50%;
-            filter: blur(80px);
-            opacity: 0.4;
-            animation: orbFloat 20s ease-in-out infinite;
-            pointer-events: none;
-            z-index: 0;
+            position: fixed; border-radius: 50%; filter: blur(80px); opacity: 0.4;
+            animation: orbFloat 20s ease-in-out infinite; pointer-events: none; z-index: 0;
         }
-        
-        .orb-1 { width: 300px; height: 300px; background: var(--accent-orange); top: -100px; left: -100px; animation-delay: 0s; }
+        .orb-1 { width: 300px; height: 300px; background: var(--accent-orange); top: -100px; left: -100px; }
         .orb-2 { width: 250px; height: 250px; background: var(--accent-purple); bottom: -50px; right: -50px; animation-delay: -5s; }
         .orb-3 { width: 150px; height: 150px; background: var(--accent-green); top: 50%; left: 50%; transform: translate(-50%, -50%); animation-delay: -10s; }
-        
         @keyframes orbFloat {
             0%, 100% { transform: translate(0, 0) scale(1); }
-            25% { transform: translate(30px, -30px) scale(1.05); }
             50% { transform: translate(-20px, 20px) scale(0.95); }
-            75% { transform: translate(15px, 30px) scale(1.02); }
         }
 
-        /* Main Card Container */
-        .main-container {
-            position: relative;
-            z-index: 10;
-            width: 100%;
-            max-width: 440px;
-            padding: 20px;
-        }
-
+        /* Main Card */
+        .main-container { position: relative; z-index: 10; width: 100%; max-width: 440px; padding: 20px; }
         .glass-card {
-            background: var(--gradient-card);
-            border: 1px solid var(--border-color);
-            border-radius: 24px;
-            padding: 40px 35px;
-            backdrop-filter: blur(20px);
-            box-shadow: 0 25px 80px rgba(0, 0, 0, 0.5), 0 0 60px var(--accent-orange-glow);
-            animation: cardAppear 0.8s cubic-bezier(0.4, 0, 0.2, 1);
-            position: relative;
-            overflow: hidden;
+            background: var(--gradient-card); border: 1px solid var(--border-color); border-radius: 24px; padding: 40px 35px;
+            backdrop-filter: blur(20px); box-shadow: 0 25px 80px rgba(0, 0, 0, 0.5), 0 0 60px var(--accent-orange-glow);
+            animation: cardAppear 0.8s cubic-bezier(0.4, 0, 0.2, 1); position: relative; overflow: hidden;
         }
+        @keyframes cardAppear { from { opacity: 0; transform: translateY(30px) scale(0.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
 
-        @keyframes cardAppear {
-            from { opacity: 0; transform: translateY(30px) scale(0.95); }
-            to { opacity: 1; transform: translateY(0) scale(1); }
-        }
-
-        /* Header Styling */
+        /* UI Elements */
         .brand-section { text-align: center; margin-bottom: 35px; }
-        
         .brand-icon {
-            width: 70px; height: 70px;
-            background: var(--gradient-orange);
-            border-radius: 18px;
-            display: inline-flex; align-items: center; justify-content: center;
-            font-size: 32px; color: white;
-            margin-bottom: 18px;
-            box-shadow: 0 15px 40px var(--accent-orange-glow);
-            animation: iconPulse 3s ease-in-out infinite;
+            width: 70px; height: 70px; background: var(--gradient-orange); border-radius: 18px;
+            display: inline-flex; align-items: center; justify-content: center; font-size: 32px; color: white;
+            margin-bottom: 18px; box-shadow: 0 15px 40px var(--accent-orange-glow); animation: iconPulse 3s ease-in-out infinite;
         }
-
-        @keyframes iconPulse {
-            0%, 100% { transform: scale(1); box-shadow: 0 15px 40px var(--accent-orange-glow); }
-            50% { transform: scale(1.05); box-shadow: 0 20px 50px var(--accent-orange-glow); }
-        }
-
-        .brand-title { font-size: 26px; font-weight: 900; color: white; letter-spacing: -0.5px; }
-        .brand-title span { 
-            background: var(--gradient-orange); 
-            -webkit-background-clip: text; -webkit-text-fill-color: transparent; 
-        }
-        .brand-subtitle { 
-            color: var(--text-secondary); font-size: 11px; letter-spacing: 2px; 
-            margin-top: 6px; font-weight: 600; text-transform: uppercase; 
-        }
-
-        /* Input Styling */
-        .input-group-custom { margin-bottom: 25px; position: relative; }
+        @keyframes iconPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
         
+        .brand-title { font-size: 26px; font-weight: 900; letter-spacing: -0.5px; }
+        .brand-title span { background: var(--gradient-orange); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .brand-subtitle { color: var(--text-secondary); font-size: 11px; letter-spacing: 2px; margin-top: 6px; font-weight: 600; text-transform: uppercase; }
+
         .form-control-custom {
-            width: 100%;
-            padding: 18px;
-            background: rgba(255, 255, 255, 0.03);
-            border: 1px solid var(--border-color);
-            border-radius: 16px;
-            color: white;
-            font-size: 18px;
-            font-weight: 700;
-            text-align: center;
-            letter-spacing: 2px;
-            transition: var(--transition-smooth);
-            outline: none;
+            width: 100%; padding: 18px; background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-color);
+            border-radius: 16px; color: white; font-size: 18px; font-weight: 700; text-align: center; letter-spacing: 2px;
+            outline: none; transition: var(--transition-smooth); margin-bottom: 25px;
         }
+        .form-control-custom:focus { border-color: var(--accent-orange); background: rgba(255, 122, 0, 0.05); box-shadow: 0 0 0 4px var(--accent-orange-glow); }
 
-        .form-control-custom:focus {
-            border-color: var(--accent-orange);
-            background: rgba(255, 122, 0, 0.05);
-            box-shadow: 0 0 0 4px var(--accent-orange-glow);
-        }
-
-        /* Button Styling */
         .btn-action {
-            width: 100%;
-            padding: 16px;
-            background: var(--gradient-orange);
-            color: white;
-            border: none;
-            border-radius: 16px;
-            font-weight: 700;
-            font-size: 16px;
-            cursor: pointer;
-            transition: var(--transition-smooth);
-            position: relative;
-            overflow: hidden;
-            letter-spacing: 1px;
-            text-transform: uppercase;
+            width: 100%; padding: 16px; background: var(--gradient-orange); color: white; border: none; border-radius: 16px;
+            font-weight: 700; font-size: 16px; cursor: pointer; transition: var(--transition-smooth); letter-spacing: 1px; text-transform: uppercase;
         }
+        .btn-action:hover { transform: translateY(-3px); box-shadow: 0 10px 30px var(--accent-orange-glow); }
 
-        .btn-action:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 10px 30px var(--accent-orange-glow);
-        }
-
-        /* Result Box Styling */
-        .result-box {
-            display: none;
-            margin-top: 30px;
-            animation: slideUp 0.5s ease-out;
-        }
-        
+        .result-box { display: none; margin-top: 30px; animation: slideUp 0.5s ease-out; }
         @keyframes slideUp { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
 
-        .info-card {
-            background: rgba(255, 255, 255, 0.03);
-            border: 1px solid var(--border-color);
-            border-radius: 16px;
-            padding: 20px;
-            text-align: center;
-            margin-bottom: 20px;
-        }
-
+        .info-card { background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-color); border-radius: 16px; padding: 20px; text-align: center; margin-bottom: 20px; }
         .challan-text { font-size: 22px; font-weight: 800; color: white; margin-bottom: 5px; }
         .sys-text { font-size: 13px; color: var(--text-secondary); font-weight: 500; }
+        .status-icon-success { font-size: 40px; color: var(--accent-green); margin-bottom: 15px; filter: drop-shadow(0 0 10px rgba(16, 185, 129, 0.4)); }
 
-        .status-icon-success {
-            font-size: 40px; color: var(--accent-green); margin-bottom: 15px;
-            filter: drop-shadow(0 0 10px rgba(16, 185, 129, 0.4));
-        }
-
-        /* Action Buttons */
         .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
-
         .btn-outline {
-            background: rgba(255, 255, 255, 0.03);
-            border: 1px solid var(--border-color);
-            color: var(--text-secondary);
-            padding: 15px;
-            border-radius: 12px;
-            font-size: 13px;
-            text-decoration: none;
-            display: flex; flex-direction: column; align-items: center; gap: 8px;
-            transition: var(--transition-smooth);
-            font-weight: 600;
+            background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-color); color: var(--text-secondary);
+            padding: 15px; border-radius: 12px; font-size: 13px; text-decoration: none; display: flex; flex-direction: column;
+            align-items: center; gap: 8px; transition: var(--transition-smooth); font-weight: 600;
         }
-
-        .btn-outline:hover {
-            background: rgba(255, 255, 255, 0.08);
-            border-color: var(--text-primary);
-            color: white;
-            transform: translateY(-2px);
-        }
-        
+        .btn-outline:hover { background: rgba(255, 255, 255, 0.08); border-color: var(--text-primary); color: white; transform: translateY(-2px); }
         .btn-outline i { font-size: 18px; color: var(--accent-orange); margin-bottom: 2px; }
 
-        /* Error Box */
         .error-message {
-            background: rgba(239, 68, 68, 0.1);
-            border: 1px solid rgba(239, 68, 68, 0.2);
-            color: #F87171;
-            padding: 15px;
-            border-radius: 12px;
-            font-size: 14px;
-            font-weight: 500;
-            display: flex; align-items: center; gap: 10px; justify-content: center;
-            margin-bottom: 15px;
+            background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); color: #F87171;
+            padding: 15px; border-radius: 12px; font-size: 14px; font-weight: 500; display: flex; align-items: center; gap: 10px; justify-content: center; margin-bottom: 15px;
         }
 
-        /* Loader Overlay */
         #loading-overlay {
-            display: none;
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(22, 22, 31, 0.9);
-            z-index: 100;
-            flex-direction: column; justify-content: center; align-items: center;
-            backdrop-filter: blur(5px);
-            border-radius: 24px;
+            display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(22, 22, 31, 0.9);
+            z-index: 100; flex-direction: column; justify-content: center; align-items: center; backdrop-filter: blur(5px); border-radius: 24px;
         }
-
         .spinner {
-            width: 50px; height: 50px;
-            border: 4px solid rgba(255, 122, 0, 0.1);
-            border-top: 4px solid var(--accent-orange);
-            border-right: 4px solid var(--accent-orange);
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-            box-shadow: 0 0 20px var(--accent-orange-glow);
+            width: 50px; height: 50px; border: 4px solid rgba(255, 122, 0, 0.1); border-top: 4px solid var(--accent-orange);
+            border-right: 4px solid var(--accent-orange); border-radius: 50%; animation: spin 0.8s linear infinite; box-shadow: 0 0 20px var(--accent-orange-glow);
         }
-
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
-        /* Footer */
-        .footer-credit {
-            text-align: center;
-            margin-top: 30px;
-            color: var(--text-secondary);
-            font-size: 11px;
-            opacity: 0.6;
-            font-weight: 500;
-            letter-spacing: 0.5px;
-        }
-        
+        .footer-credit { text-align: center; margin-top: 30px; color: var(--text-secondary); font-size: 11px; opacity: 0.6; font-weight: 500; letter-spacing: 0.5px; }
         .dev-name { color: var(--accent-orange); font-weight: 700; text-transform: uppercase; }
-
     </style>
 </head>
 <body>
-
-    <div class="bg-orb orb-1"></div>
-    <div class="bg-orb orb-2"></div>
-    <div class="bg-orb orb-3"></div>
-
+    <div class="bg-orb orb-1"></div><div class="bg-orb orb-2"></div><div class="bg-orb orb-3"></div>
     <div class="main-container">
         <div class="glass-card">
-            
             <div id="loading-overlay">
                 <div class="spinner"></div>
                 <div style="margin-top: 15px; font-weight: 600; color: var(--accent-orange); letter-spacing: 1px;">PROCESSING...</div>
             </div>
-
             <div class="brand-section">
-                <div class="brand-icon">
-                    <i class="fa-solid fa-layer-group"></i>
-                </div>
+                <div class="brand-icon"><i class="fa-solid fa-layer-group"></i></div>
                 <div class="brand-title">SEWING<span>INPUT</span></div>
                 <div class="brand-subtitle">MNM Production System</div>
             </div>
-
             <form id="mainForm">
                 <div class="input-group-custom">
                     <input type="number" inputmode="numeric" id="challanNo" class="form-control-custom" placeholder="ENTER CHALLAN NO" required autocomplete="off">
                 </div>
-                
-                <button type="submit" class="btn-action">
-                    Submit Data <i class="fa-solid fa-arrow-right ms-2"></i>
-                </button>
+                <button type="submit" class="btn-action">Submit Data <i class="fa-solid fa-arrow-right ms-2"></i></button>
             </form>
-
             <div id="successBox" class="result-box">
-                <div style="text-align: center;">
-                    <i class="fa-solid fa-circle-check status-icon-success"></i>
-                </div>
-                
+                <div style="text-align: center;"><i class="fa-solid fa-circle-check status-icon-success"></i></div>
                 <div class="info-card">
                     <div class="challan-text" id="successChallan">---</div>
                     <div class="sys-text" id="sysId">---</div>
                 </div>
-
                 <div class="btn-grid">
-                    <a href="#" id="link1" target="_blank" class="btn-outline">
-                        <i class="fa-solid fa-print"></i> Call List
-                    </a>
-                    <a href="#" id="link2" target="_blank" class="btn-outline">
-                        <i class="fa-solid fa-file-invoice"></i> Challan
-                    </a>
+                    <a href="#" id="link1" target="_blank" class="btn-outline"><i class="fa-solid fa-print"></i> Call List</a>
+                    <a href="#" id="link2" target="_blank" class="btn-outline"><i class="fa-solid fa-file-invoice"></i> Challan</a>
                 </div>
-
                 <div style="text-align: center; margin-top: 25px;">
-                    <a href="#" onclick="resetUI()" style="color: var(--text-secondary); text-decoration: none; font-size: 13px; font-weight: 500;">
-                        <i class="fa-solid fa-rotate-right me-1"></i> Input Another
-                    </a>
+                    <a href="#" onclick="resetUI()" style="color: var(--text-secondary); text-decoration: none; font-size: 13px; font-weight: 500;"><i class="fa-solid fa-rotate-right me-1"></i> Input Another</a>
                 </div>
             </div>
-
             <div id="errorBox" class="result-box">
-                <div class="error-message">
-                    <i class="fa-solid fa-triangle-exclamation"></i>
-                    <span id="errorMsg">Unknown Error</span>
-                </div>
-                <button onclick="resetUI()" class="btn-outline w-100" style="color: var(--accent-red); border-color: rgba(239, 68, 68, 0.3);">
-                    Try Again
-                </button>
+                <div class="error-message"><i class="fa-solid fa-triangle-exclamation"></i> <span id="errorMsg">Unknown Error</span></div>
+                <button onclick="resetUI()" class="btn-outline w-100" style="color: var(--accent-red); border-color: rgba(239, 68, 68, 0.3);">Try Again</button>
             </div>
-
-            <div class="footer-credit">
-                System Developed By <span class="dev-name">Mehedi Hasan</span>
-            </div>
-
+            <div class="footer-credit">System Developed By <span class="dev-name">Mehedi Hasan</span></div>
         </div>
     </div>
-
     <script>
         const form = document.getElementById('mainForm');
         const input = document.getElementById('challanNo');
@@ -365,7 +179,6 @@ HTML_TEMPLATE = """
             e.preventDefault();
             const val = input.value;
             if(!val) return;
-
             input.blur(); 
             loader.style.display = 'flex';
             successBox.style.display = 'none';
@@ -373,29 +186,21 @@ HTML_TEMPLATE = """
 
             try {
                 const req = await fetch('/process', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({challan: val})
+                    method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({challan: val})
                 });
                 const res = await req.json();
-
                 loader.style.display = 'none';
 
                 if(res.status === 'success') {
-                    // Update Info
                     document.getElementById('successChallan').innerText = res.challan_no;
                     document.getElementById('sysId').innerText = "SYS ID: " + res.system_id;
-                    
-                    // Update Links
                     document.getElementById('link1').href = res.report1_url;
                     document.getElementById('link2').href = res.report2_url;
-                    
                     successBox.style.display = 'block';
                 } else {
                     document.getElementById('errorMsg').innerText = res.message;
                     errorBox.style.display = 'block';
                 }
-
             } catch (err) {
                 loader.style.display = 'none';
                 document.getElementById('errorMsg').innerText = "Server Connection Error";
@@ -460,13 +265,13 @@ def process_data(user_input):
 
         res_pop = session.post(ctrl_url, params={'data': sys_id, 'action': 'populate_data_from_challan_popup'}, data={'rndval': int(time.time()*1000)}, headers=headers_common)
         
-        # 🟢 STRICT HELPER FUNCTION (Strips spaces, Default '0')
+        # 🟢 STRICT HELPER FUNCTION
         def get_val(pat, txt):
             m = re.search(pat, txt)
             if m:
-                val = m.group(1).strip() # Remove spaces (e.g., " 0 " -> "0")
-                return val if val else '0' # Return '0' if empty string
-            return '0' # Return '0' if not found
+                val = m.group(1).strip() # Remove spaces
+                return val if val else '0' 
+            return '0' 
 
         # =========================================================================
         # 🔥 EXTRACTING & VALIDATING DATA (STRICT MODE) 🔥
@@ -478,7 +283,7 @@ def process_data(user_input):
         location = get_val(r"\$\('#cbo_location'\)\.val\('([^']*)'\)", res_pop.text)
         floor = get_val(r"\$\('#cbo_floor'\)\.val\('([^']*)'\)", res_pop.text)
 
-        # STRICT VALIDATION: Blocks '0', '00', '', 'undefined', 'null'
+        # Forbidden values
         forbidden = ['0', '00', '', 'undefined', 'null']
 
         missing_fields = []
@@ -523,24 +328,29 @@ def process_data(user_input):
                 'isRescan': get_row_val(r"name=\"isRescan\[\]\".*?value=\"(\d+)\"", r)
             })
 
-        # 5. Save Payload (Validated Data)
+        # 5. Save Payload (UTC+6 Bangladesh Time)
+        # ---------------------------------------------
         bd_zone = timezone(timedelta(hours=6))
         now_bd = datetime.now(bd_zone)
-        fmt_date = now_bd.strftime("%d-%b-%Y")
+        
+        fmt_date = now_bd.strftime("%d-%b-%Y") # e.g., 18-Dec-2025
+        curr_time = now_bd.strftime("%H:%M")   # e.g., 11:35 (24H Format)
+        # ---------------------------------------------
         
         payload = {
             'action': 'save_update_delete', 'operation': '0', 'tot_row': str(len(b_data)),
             'garments_nature': "'2'", 'cbo_company_name': f"'{cbo_logic}'", 'sewing_production_variable': "'3'",
-            'cbo_source': f"'{source}'",          # Validated
-            'cbo_emb_company': f"'{emb_company}'", # Validated
-            'cbo_location': f"'{location}'",      # Validated
+            'cbo_source': f"'{source}'",          
+            'cbo_emb_company': f"'{emb_company}'", 
+            'cbo_location': f"'{location}'",      
             'cbo_floor': f"'{floor}'",            
             'txt_issue_date': f"'{fmt_date}'", 'txt_organic': "''", 'txt_system_id': "''", 'delivery_basis': "'3'",
             'txt_challan_no': "''", 
-            'cbo_line_no': f"'{line}'",           # Validated
+            'cbo_line_no': f"'{line}'",           
             'cbo_shift_name': "'0'",
             'cbo_working_company_name': "'0'", 'cbo_working_location': "'0'", 
-            'txt_remarks': "''", 'txt_reporting_hour': "''"
+            'txt_remarks': "''", 
+            'txt_reporting_hour': f"'{curr_time}'" # 🔥 Added BD Time here
         }
 
         for i, b in enumerate(b_data, 1):
