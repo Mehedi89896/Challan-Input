@@ -53,7 +53,7 @@ HTML_TEMPLATE = """
             position: relative;
         }
 
-        /* Animated Background Orbs (From Dgn.py) */
+        /* Animated Background Orbs */
         .bg-orb {
             position: fixed;
             border-radius: 50%;
@@ -241,7 +241,7 @@ HTML_TEMPLATE = """
             margin-bottom: 15px;
         }
 
-        /* Loader Overlay (Matches Dgn.py) */
+        /* Loader Overlay */
         #loading-overlay {
             display: none;
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
@@ -460,26 +460,34 @@ def process_data(user_input):
 
         res_pop = session.post(ctrl_url, params={'data': sys_id, 'action': 'populate_data_from_challan_popup'}, data={'rndval': int(time.time()*1000)}, headers=headers_common)
         
-        def get_val(pat, txt, d='0'):
+        # Default value is empty string so we can detect missing data
+        def get_val(pat, txt, d=''):
             m = re.search(pat, txt)
             return m.group(1) if m else d
 
         # =========================================================================
-        # 🔥 NEW LOGIC START: Extract & Validate Floor, Line, Location 🔥
+        # 🔥 EXTRACTING & VALIDATING DATA 🔥
         # =========================================================================
-        floor = get_val(r"\$\('#cbo_floor'\)\.val\('([^']*)'\)", res_pop.text)
+        
+        # Extract variables from the system response
+        source = get_val(r"\$\('#cbo_source'\)\.val\('([^']*)'\)", res_pop.text)
+        emb_company = get_val(r"\$\('#cbo_emb_company'\)\.val\('([^']*)'\)", res_pop.text)
         line = get_val(r"\$\('#cbo_line_no'\)\.val\('([^']*)'\)", res_pop.text)
         location = get_val(r"\$\('#cbo_location'\)\.val\('([^']*)'\)", res_pop.text)
+        floor = get_val(r"\$\('#cbo_floor'\)\.val\('([^']*)'\)", res_pop.text)
 
-        # Validation Check: Only block if values are completely EMPTY strings. 
-        # '0' is allowed now.
-        if floor == '' or line == '' or location == '':
+        # CHECK FOR EMPTY VALUES (Empty string is bad, '0' is okay)
+        missing_fields = []
+        if source == '': missing_fields.append("Source")
+        if emb_company == '': missing_fields.append("Emb Company")
+        if line == '': missing_fields.append("Line No")
+        if location == '': missing_fields.append("Location")
+
+        if missing_fields:
             return {
                 "status": "error", 
-                "message": "⚠️ Please select Floor, Line, and Location properly."
+                "message": f"⚠️ Missing: {', '.join(missing_fields)}. Please Select them."
             }
-        # =========================================================================
-        # 🔥 NEW LOGIC END 🔥
         # =========================================================================
 
         # Bundles
@@ -511,11 +519,14 @@ def process_data(user_input):
         payload = {
             'action': 'save_update_delete', 'operation': '0', 'tot_row': str(len(b_data)),
             'garments_nature': "'2'", 'cbo_company_name': f"'{cbo_logic}'", 'sewing_production_variable': "'3'",
-            'cbo_source': "'1'", 'cbo_emb_company': "'2'", 
-            'cbo_location': f"'{location}'", # Will send '0' if value is 0, which is fine
+            'cbo_source': f"'{source}'", # Using validated variable
+            'cbo_emb_company': f"'{emb_company}'", # Using validated variable
+            'cbo_location': f"'{location}'", # Using validated variable
             'cbo_floor': f"'{floor}'",
             'txt_issue_date': f"'{fmt_date}'", 'txt_organic': "''", 'txt_system_id': "''", 'delivery_basis': "'3'",
-            'txt_challan_no': "''", 'cbo_line_no': f"'{line}'", 'cbo_shift_name': "'0'",
+            'txt_challan_no': "''", 
+            'cbo_line_no': f"'{line}'", # Using validated variable
+            'cbo_shift_name': "'0'",
             'cbo_working_company_name': "'0'", 'cbo_working_location': "'0'", 'txt_remarks': "''", 'txt_reporting_hour': f"'{curr_time}'"
         }
 
