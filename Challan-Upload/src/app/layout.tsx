@@ -17,6 +17,14 @@ const quicksand = Quicksand({
 export const metadata: Metadata = {
   title: "Sewing Input Portal",
   description: "MNM Production System - Sewing Input Portal",
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/icon.svg", type: "image/svg+xml" },
+    ],
+    apple: "/apple-icon.png",
+  },
+  manifest: "/manifest.json",
 };
 
 export const viewport: Viewport = {
