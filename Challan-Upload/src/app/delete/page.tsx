@@ -28,7 +28,58 @@ import {
   Loader2,
   ShieldAlert,
   ChevronDown,
+  ShieldCheck,
 } from "lucide-react";
+
+/* ── Web Crypto helpers ── */
+function bufToHex(buf: ArrayBuffer): string {
+  return Array.from(new Uint8Array(buf))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+function bufToBase64(buf: ArrayBuffer): string {
+  return btoa(String.fromCharCode(...new Uint8Array(buf)));
+}
+function base64ToBuf(b64: string): ArrayBuffer {
+  const bin = atob(b64);
+  const arr = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+  return arr.buffer;
+}
+
+async function sha256Hex(input: string): Promise<string> {
+  const buf = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(input)
+  );
+  return bufToHex(buf);
+}
+
+async function aesEncrypt(
+  key: CryptoKey,
+  data: unknown
+): Promise<{ ct: string; iv: string }> {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ciphertext = await crypto.subtle.encrypt(
+    { name: "AES-GCM", iv },
+    key,
+    new TextEncoder().encode(JSON.stringify(data))
+  );
+  return { ct: bufToBase64(ciphertext), iv: bufToBase64(iv.buffer) };
+}
+
+async function aesDecrypt(
+  key: CryptoKey,
+  ct: string,
+  iv: string
+): Promise<unknown> {
+  const plaintext = await crypto.subtle.decrypt(
+    { name: "AES-GCM", iv: base64ToBuf(iv) },
+    key,
+    base64ToBuf(ct)
+  );
+  return JSON.parse(new TextDecoder().decode(plaintext));
+}
 
 /* ── Types ── */
 interface ChallanDetails {
@@ -68,7 +119,7 @@ const locations = [
 
 export default function DeletePage() {
   // Auth state
-  const [authToken, setAuthToken] = useState<string | null>(null);
+  const [sessionKey, setSessionKey] = useState<CryptoKey | null>(null);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -94,7 +145,7 @@ export default function DeletePage() {
     if (step === "search") challanRef.current?.focus();
   }, [step]);
 
-  // ── Login ──
+  // ── Login (challenge-response — password never leaves the browser) ──
   const handleLogin = async (e: FormEvent) => {
     e.preventDefault();
     if (!username || !password) return;
@@ -103,51 +154,122 @@ export default function DeletePage() {
     setAuthError("");
 
     try {
+      // Step 1: Get one-time challenge from server
+      const challengeRes = await fetch("/api/auth");
+      if (!challengeRes.ok) {
+        setAuthError("Failed to initiate secure handshake");
+        return;
+      }
+      const { challengeId, challenge } = await challengeRes.json();
+
+      // Step 2: Compute proof = SHA256(SHA256(password) + challenge)
+      const passHash = await sha256Hex(password);
+      const proof = await sha256Hex(passHash + challenge);
+
+      // Step 3: Send username + proof (password NEVER sent)
       const res = await fetch("/api/auth", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
+        credentials: "same-origin",
+        body: JSON.stringify({ username, challengeId, proof }),
       });
 
       const data = await res.json();
-
       if (!res.ok) {
         setAuthError(data.error || "Authentication failed");
         return;
       }
 
-      setAuthToken(data.token);
+      // Step 4: Derive PBKDF2 key from password + challenge
+      const passKey = await crypto.subtle.importKey(
+        "raw",
+        new TextEncoder().encode(password),
+        "PBKDF2",
+        false,
+        ["deriveBits"]
+      );
+      const derivedBits = await crypto.subtle.deriveBits(
+        {
+          name: "PBKDF2",
+          salt: new TextEncoder().encode(challenge),
+          iterations: 50000,
+          hash: "SHA-256",
+        },
+        passKey,
+        256
+      );
+
+      // Step 5: Decrypt the AES session key
+      const aesKey = await crypto.subtle.importKey(
+        "raw",
+        derivedBits,
+        "AES-GCM",
+        false,
+        ["decrypt"]
+      );
+      const encBuf = new Uint8Array(base64ToBuf(data.encryptedKey));
+      const ivBuf = base64ToBuf(data.iv);
+      const tagBuf = new Uint8Array(base64ToBuf(data.tag));
+      // WebCrypto expects ciphertext‖tag
+      const combined = new Uint8Array(encBuf.length + tagBuf.length);
+      combined.set(encBuf, 0);
+      combined.set(tagBuf, encBuf.length);
+      const sessionKeyBuf = await crypto.subtle.decrypt(
+        { name: "AES-GCM", iv: ivBuf },
+        aesKey,
+        combined
+      );
+
+      // Step 6: Import session key for encrypt/decrypt
+      const key = await crypto.subtle.importKey(
+        "raw",
+        sessionKeyBuf,
+        "AES-GCM",
+        false,
+        ["encrypt", "decrypt"]
+      );
+
+      setSessionKey(key);
       setStep("search");
       setUsername("");
       setPassword("");
     } catch {
-      setAuthError("Network error - server unreachable");
+      setAuthError("Secure handshake failed — please retry");
     } finally {
       setAuthLoading(false);
     }
   };
 
-  // ── API helper ──
+  // ── API helper (all payloads encrypted with AES-256-GCM) ──
   const apiCall = async (body: Record<string, string>) => {
+    if (!sessionKey) throw new Error("No session");
+
+    // Encrypt the request payload
+    const encrypted = await aesEncrypt(sessionKey, body);
+
     const res = await fetch("/api/delete", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${authToken}`,
-      },
-      body: JSON.stringify(body),
+      headers: { "Content-Type": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify(encrypted),
     });
 
-    const data = await res.json();
-
     if (res.status === 401) {
-      setAuthToken(null);
+      setSessionKey(null);
       setStep("login");
       setAuthError("Session expired. Please login again.");
       throw new Error("Unauthorized");
     }
 
-    return { data, ok: res.ok };
+    const encResponse = await res.json();
+
+    // Decrypt the response if encrypted
+    if (encResponse.ct && encResponse.iv) {
+      const data = await aesDecrypt(sessionKey, encResponse.ct, encResponse.iv);
+      return { data: data as Record<string, unknown>, ok: res.ok };
+    }
+
+    return { data: encResponse, ok: res.ok };
   };
 
   // ── Search challan ──
@@ -373,7 +495,7 @@ export default function DeletePage() {
                 </button>
 
                 <p className="text-[10px] font-accent text-white/25 text-center mt-3">
-                  Protected by HMAC token authentication with rate limiting
+                  Protected by challenge-response auth &amp; AES-256-GCM encryption
                 </p>
               </form>
             </motion.div>
@@ -773,9 +895,9 @@ export default function DeletePage() {
       {/* Security footer */}
       <div className="fixed bottom-0 left-0 right-0 bg-[#0d0d0d]/80 backdrop-blur border-t border-white/[0.03]">
         <div className="max-w-lg mx-auto px-5 py-3 flex items-center justify-center gap-2">
-          <Lock size={10} className="text-white/20" />
+          <ShieldCheck size={10} className="text-[#66a80f]/30" />
           <p className="text-[10px] font-accent text-white/20">
-            Secured session with token-based authentication
+            End-to-end encrypted · AES-256-GCM · Challenge-response auth
           </p>
         </div>
       </div>

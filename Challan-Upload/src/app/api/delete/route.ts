@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyToken } from "@/app/api/auth/route";
+import { verifyToken, getSessionKey } from "@/app/api/auth/route";
+import { encryptPayload, decryptPayload } from "@/lib/crypto";
 
 /**
  * Delete Challan API
@@ -120,16 +121,9 @@ function createERPSession() {
   return { baseUrl, headersCommon, get, post, login, getCookieHeader };
 }
 
-// ── Token validation middleware ──
-function extractToken(request: NextRequest): string | null {
-  const auth = request.headers.get("authorization");
-  if (auth?.startsWith("Bearer ")) return auth.slice(7);
-  return null;
-}
-
 export async function POST(request: NextRequest) {
-  // 1. Validate auth token
-  const token = extractToken(request);
+  // 1. Validate auth token from HttpOnly cookie
+  const token = request.cookies.get("__del_token")?.value;
   if (!token || !verifyToken(token)) {
     return NextResponse.json(
       { error: "Unauthorized — session expired or invalid" },
@@ -137,8 +131,26 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // 2. Retrieve session encryption key
+  const sessionKey = getSessionKey(token);
+  if (!sessionKey) {
+    return NextResponse.json(
+      { error: "Session key expired" },
+      { status: 401 }
+    );
+  }
+
+  // Helper: every response after auth is AES-256-GCM encrypted
+  const respond = (data: unknown, status = 200) =>
+    NextResponse.json(encryptPayload(data, sessionKey), { status });
+
   try {
-    const body = await request.json();
+    // 3. Decrypt incoming request body
+    const encBody = await request.json();
+    if (!encBody?.ct || !encBody?.iv) {
+      return respond({ error: "Invalid encrypted payload" }, 400);
+    }
+    const body = decryptPayload(encBody.ct, encBody.iv, sessionKey) as Record<string, string>;
     const { action, challan_no, company_id, location_id, system_id } = body;
 
     const erp = createERPSession();
@@ -151,10 +163,7 @@ export async function POST(request: NextRequest) {
     // ─────────────────────────────────────
     if (action === "search") {
       if (!challan_no || !company_id) {
-        return NextResponse.json(
-          { error: "Challan number and company required" },
-          { status: 400 }
-        );
+        return respond({ error: "Challan number and company required" }, 400);
       }
 
       const loc = location_id || "1";
@@ -177,13 +186,10 @@ export async function POST(request: NextRequest) {
       // Python regex: js_set_value\('(\d+)' — match quoted system_id (2 args in call)
       const match = searchText.match(/js_set_value\('(\d+)'/);
       if (!match) {
-        return NextResponse.json(
-          { error: "Challan not found in ERP system" },
-          { status: 404 }
-        );
+        return respond({ error: "Challan not found in ERP system" }, 404);
       }
 
-      return NextResponse.json({ system_id: match[1] });
+      return respond({ system_id: match[1] });
     }
 
     // ─────────────────────────────────────
@@ -191,10 +197,7 @@ export async function POST(request: NextRequest) {
     // ─────────────────────────────────────
     if (action === "preview") {
       if (!system_id) {
-        return NextResponse.json(
-          { error: "System ID required" },
-          { status: 400 }
-        );
+        return respond({ error: "System ID required" }, 400);
       }
 
       const printData = `1*${system_id}*3*\u274f Bundle Wise Sewing Input*undefined*undefined*undefined*1`;
@@ -203,10 +206,7 @@ export async function POST(request: NextRequest) {
       );
 
       if (!printRes.ok) {
-        return NextResponse.json(
-          { error: "Failed to fetch challan details" },
-          { status: 500 }
-        );
+        return respond({ error: "Failed to fetch challan details" }, 500);
       }
 
       const html = await printRes.text();
@@ -305,7 +305,7 @@ export async function POST(request: NextRequest) {
         if (bundleMatch) details.total_bundles = bundleMatch[1];
       }
 
-      return NextResponse.json({ details });
+      return respond({ details });
     }
 
     // ─────────────────────────────────────
@@ -313,10 +313,7 @@ export async function POST(request: NextRequest) {
     // ─────────────────────────────────────
     if (action === "delete") {
       if (!system_id || !challan_no || !company_id) {
-        return NextResponse.json(
-          { error: "System ID, challan number, and company required" },
-          { status: 400 }
-        );
+        return respond({ error: "System ID, challan number, and company required" }, 400);
       }
 
       const loc = location_id || "1";
@@ -333,10 +330,7 @@ export async function POST(request: NextRequest) {
       const barcodesString = bunText.trim().split("**")[0];
 
       if (!barcodesString) {
-        return NextResponse.json(
-          { error: "No bundles found for this challan" },
-          { status: 404 }
-        );
+        return respond({ error: "No bundles found for this challan" }, 404);
       }
 
       // Step 2: Get header data (line_no, floor_id, issue_date)
@@ -358,10 +352,7 @@ export async function POST(request: NextRequest) {
       const issueDate = dateMatch?.[1];
 
       if (!lineNo || !floorId || !issueDate) {
-        return NextResponse.json(
-          { error: "Failed to retrieve challan header data" },
-          { status: 500 }
-        );
+        return respond({ error: "Failed to retrieve challan header data" }, 500);
       }
 
       // Step 3: Get bundle table data
@@ -378,10 +369,7 @@ export async function POST(request: NextRequest) {
       const totalRows = trMatches.length;
 
       if (totalRows === 0) {
-        return NextResponse.json(
-          { error: "No bundle rows found in challan" },
-          { status: 404 }
-        );
+        return respond({ error: "No bundle rows found in challan" }, 404);
       }
 
       // Build delete payload
@@ -504,19 +492,16 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      return NextResponse.json({
+      return respond({
         success,
         message: resultMessage,
         raw: respText.substring(0, 50),
       });
     }
 
-    return NextResponse.json(
-      { error: "Invalid action. Use: search, preview, or delete" },
-      { status: 400 }
-    );
+    return respond({ error: "Invalid action. Use: search, preview, or delete" }, 400);
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return respond({ error: msg }, 500);
   }
 }

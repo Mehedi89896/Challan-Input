@@ -1,12 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createHash, randomBytes, timingSafeEqual } from "crypto";
+import {
+  createHash,
+  randomBytes,
+  timingSafeEqual,
+  createCipheriv,
+} from "crypto";
+import { deriveKey } from "@/lib/crypto";
 
 /**
- * Secure admin authentication endpoint.
- * - Credentials verified server-side only (never exposed to client)
- * - Uses timing-safe comparison to prevent timing attacks
- * - Returns a signed HMAC token valid for 30 minutes
- * - Rate limiting via in-memory tracker
+ * Secure admin authentication with:
+ *  1. Challenge-response login  — password NEVER leaves the client
+ *  2. PBKDF2-encrypted session key exchange
+ *  3. HttpOnly cookie for auth token (invisible to JS / DevTools)
+ *  4. Rate limiting + timing-safe comparisons
  */
 
 // ── Rate limiter ──
@@ -29,6 +35,30 @@ function isRateLimited(ip: string): boolean {
 const TOKEN_SECRET =
   process.env.DELETE_TOKEN_SECRET || randomBytes(32).toString("hex");
 const TOKEN_TTL = 30 * 60 * 1000; // 30 minutes
+
+// ── Challenge store (single-use, 60 s TTL) ──
+const challenges = new Map<
+  string,
+  { challenge: string; createdAt: number }
+>();
+const CHALLENGE_TTL = 60_000;
+
+// ── Session store  token → AES session key ──
+const sessions = new Map<
+  string,
+  { sessionKey: Buffer; createdAt: number }
+>();
+
+/** Periodically clean expired entries */
+function cleanup() {
+  const now = Date.now();
+  for (const [id, c] of challenges) {
+    if (now - c.createdAt > CHALLENGE_TTL) challenges.delete(id);
+  }
+  for (const [t, s] of sessions) {
+    if (now - s.createdAt > TOKEN_TTL) sessions.delete(t);
+  }
+}
 
 function generateToken(): string {
   const payload = `${Date.now()}:${randomBytes(16).toString("hex")}`;
@@ -66,6 +96,17 @@ export function verifyToken(token: string): boolean {
   }
 }
 
+/** Retrieve the AES-256 session key bound to a valid token. */
+export function getSessionKey(token: string): Buffer | null {
+  const s = sessions.get(token);
+  if (!s) return null;
+  if (Date.now() - s.createdAt > TOKEN_TTL) {
+    sessions.delete(token);
+    return null;
+  }
+  return s.sessionKey;
+}
+
 // ── Secure credential comparison ──
 function safeCompare(input: string, expected: string): boolean {
   const a = Buffer.from(input, "utf-8");
@@ -78,8 +119,19 @@ function safeCompare(input: string, expected: string): boolean {
   return timingSafeEqual(a, b);
 }
 
+// ── GET: Issue a one-time challenge nonce ──
+export async function GET() {
+  cleanup();
+  const challengeId = randomBytes(16).toString("hex");
+  const challenge = randomBytes(32).toString("hex");
+  challenges.set(challengeId, { challenge, createdAt: Date.now() });
+  return NextResponse.json({ challengeId, challenge });
+}
+
+// ── POST: Verify challenge-response proof & create encrypted session ──
 export async function POST(request: NextRequest) {
-  // Get client IP for rate limiting
+  cleanup();
+
   const forwarded = request.headers.get("x-forwarded-for");
   const ip = forwarded?.split(",")[0]?.trim() || "unknown";
 
@@ -92,32 +144,75 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { username, password } = body;
+    const { username, challengeId, proof } = body;
 
-    if (!username || !password) {
+    if (!username || !challengeId || !proof) {
       return NextResponse.json(
-        { error: "Credentials required" },
+        { error: "Invalid request format" },
         { status: 400 }
       );
     }
 
+    // ─ Validate challenge ─
+    const entry = challenges.get(challengeId);
+    if (!entry || Date.now() - entry.createdAt > CHALLENGE_TTL) {
+      challenges.delete(challengeId);
+      return NextResponse.json(
+        { error: "Challenge expired — please retry" },
+        { status: 400 }
+      );
+    }
+    challenges.delete(challengeId); // single-use
+
+    // ─ Verify credentials via challenge-response ─
     const validUser = process.env.DELETE_USERNAME || "Mehedi";
     const validPass = process.env.DELETE_PASSWORD || "@Nijhum@12";
 
     const userOk = safeCompare(username, validUser);
-    const passOk = safeCompare(password, validPass);
 
-    if (!userOk || !passOk) {
+    // Expected proof = SHA256( SHA256(password) + challenge )
+    const passHash = createHash("sha256").update(validPass).digest("hex");
+    const expectedProof = createHash("sha256")
+      .update(passHash + entry.challenge)
+      .digest("hex");
+    const proofOk = safeCompare(proof, expectedProof);
+
+    if (!userOk || !proofOk) {
       return NextResponse.json(
         { error: "Invalid credentials" },
         { status: 401 }
       );
     }
 
-    // Generate secure token
+    // ─ Create session ─
     const token = generateToken();
+    const sessionKey = randomBytes(32); // AES-256 key for payload encryption
+    sessions.set(token, { sessionKey, createdAt: Date.now() });
 
-    return NextResponse.json({ token });
+    // Encrypt sessionKey with PBKDF2(password, challenge) so client can derive
+    const derived = deriveKey(validPass, entry.challenge);
+    const iv = randomBytes(12);
+    const cipher = createCipheriv("aes-256-gcm", derived, iv);
+    const enc = Buffer.concat([cipher.update(sessionKey), cipher.final()]);
+    const tag = cipher.getAuthTag();
+
+    // Build response — session key is encrypted, token goes in HttpOnly cookie
+    const isSecure = request.url.startsWith("https");
+    const response = NextResponse.json({
+      encryptedKey: enc.toString("base64"),
+      iv: iv.toString("base64"),
+      tag: tag.toString("base64"),
+    });
+
+    response.cookies.set("__del_token", token, {
+      httpOnly: true,
+      sameSite: "strict",
+      secure: isSecure,
+      path: "/",
+      maxAge: 30 * 60,
+    });
+
+    return response;
   } catch {
     return NextResponse.json(
       { error: "Server error" },
