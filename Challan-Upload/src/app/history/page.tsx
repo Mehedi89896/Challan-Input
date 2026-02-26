@@ -21,6 +21,7 @@ import {
   ChevronRight,
   Palette,
   Package,
+  Trash2,
 } from "lucide-react";
 
 /* ── Types ── */
@@ -157,7 +158,13 @@ export default function HistoryPage() {
           <h1 className="font-display text-base sm:text-lg font-semibold text-white">
             Challan History
           </h1>
-          <div className="w-16" />
+          <Link
+            href="/delete"
+            className="p-2 rounded-xl bg-white/[0.02] border border-white/[0.04] hover:border-red-500/20 hover:bg-red-500/[0.06] transition-all group"
+            title="Delete Challan"
+          >
+            <Trash2 size={15} className="text-white/25 group-hover:text-red-400 transition-colors" strokeWidth={1.5} />
+          </Link>
         </div>
       </div>
 
