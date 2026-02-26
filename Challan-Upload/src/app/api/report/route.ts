@@ -1,23 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
 
 /**
- * Report proxy — logs into ERP, fetches report with session cookies,
- * and streams the response back so the user doesn't need ERP login.
+ * Report proxy — logs into ERP, fetches the report with session cookies,
+ * inlines external JS (jquery + jquerybarcode) so barcode renders correctly,
+ * and returns the complete HTML to the client.
  */
 export async function GET(request: NextRequest) {
   const url = request.nextUrl.searchParams.get("url");
 
   if (!url) {
-    return NextResponse.json({ error: "Missing url parameter" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Missing url parameter" },
+      { status: 400 }
+    );
   }
 
-  // Validate URL is from our ERP
-  const allowedBase = process.env.ERP_BASE_URL!;
-  if (!url.startsWith(allowedBase)) {
+  const baseUrl = process.env.ERP_BASE_URL!;
+  if (!url.startsWith(baseUrl)) {
     return NextResponse.json({ error: "Invalid URL" }, { status: 403 });
   }
 
-  const baseUrl = allowedBase;
   const erpOrigin = new URL(baseUrl).origin;
   const clientUA =
     request.headers.get("User-Agent") ||
@@ -48,6 +50,18 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  async function erpFetch(fetchUrl: string): Promise<Response> {
+    return fetch(fetchUrl, {
+      method: "GET",
+      headers: {
+        "User-Agent": clientUA,
+        Cookie: getCookieHeader(),
+        Referer: `${baseUrl}/production/bundle_wise_sewing_input.php?permission=1_1_2_1`,
+      },
+      redirect: "manual",
+    });
+  }
+
   try {
     // 1. Login
     const loginBody = new URLSearchParams({
@@ -65,59 +79,83 @@ export async function GET(request: NextRequest) {
     parseCookies(loginRes);
 
     // 2. Session activate
-    const headersMenu = { ...headersCommon };
-    headersMenu["Referer"] =
-      `${baseUrl}/production/bundle_wise_sewing_input.php?permission=1_1_2_1`;
     try {
-      const menuRes = await fetch(
-        `${baseUrl}/tools/valid_user_action.php?menuid=724`,
-        {
-          method: "GET",
-          headers: { ...headersMenu, Cookie: getCookieHeader() },
-          redirect: "manual",
-        }
+      const menuRes = await erpFetch(
+        `${baseUrl}/tools/valid_user_action.php?menuid=724`
       );
       parseCookies(menuRes);
     } catch {
       // Non-critical
     }
 
-    // 3. Fetch the report
-    const reportRes = await fetch(url, {
-      method: "GET",
-      headers: {
-        ...headersCommon,
-        Cookie: getCookieHeader(),
-        Referer: `${baseUrl}/production/bundle_wise_sewing_input.php?permission=1_1_2_1`,
-      },
-      redirect: "manual",
-    });
-
-    const contentType = reportRes.headers.get("Content-Type") || "text/html";
+    // 3. Fetch the report HTML
+    const reportRes = await erpFetch(url);
+    const contentType =
+      reportRes.headers.get("Content-Type") || "text/html";
     let bodyBuf = await reportRes.arrayBuffer();
 
-    // If HTML, rewrite relative script/image src paths to absolute ERP URLs
-    // so barcode JS and other assets load correctly in the browser
+    // 4. If HTML, inline external JS so barcode renders in the browser
     if (contentType.includes("text/html")) {
       let html = new TextDecoder().decode(bodyBuf);
-      // Rewrite src="../../js/..." → absolute ERP URL
+
+      // Find all <script src="..."> tags with relative paths and inline them
+      const scriptRegex =
+        /<script[^>]+src="([^"]*?\.js)"[^>]*><\/script>/gi;
+      let match: RegExpExecArray | null;
+      const replacements: { original: string; jsUrl: string }[] = [];
+
+      while ((match = scriptRegex.exec(html)) !== null) {
+        const srcAttr = match[1];
+        // Only process ERP scripts (relative paths like ../../js/...)
+        if (
+          srcAttr.startsWith("../../") ||
+          srcAttr.startsWith("../") ||
+          srcAttr.startsWith(baseUrl)
+        ) {
+          let absoluteUrl: string;
+          if (srcAttr.startsWith("http")) {
+            absoluteUrl = srcAttr;
+          } else {
+            // Resolve relative to the report URL directory
+            const reportDir = url.substring(
+              0,
+              url.lastIndexOf("/") + 1
+            );
+            // Handle ../../ by resolving the URL
+            absoluteUrl = new URL(srcAttr, reportDir).href;
+          }
+          replacements.push({ original: match[0], jsUrl: absoluteUrl });
+        }
+      }
+
+      // Fetch each JS file and inline it
+      for (const rep of replacements) {
+        try {
+          const jsRes = await erpFetch(rep.jsUrl);
+          if (jsRes.ok) {
+            const jsCode = await jsRes.text();
+            html = html.replace(
+              rep.original,
+              `<script type="text/javascript">\n${jsCode}\n</script>`
+            );
+          }
+        } catch {
+          // If a JS file fails to load, leave the original tag
+        }
+      }
+
+      // Remove chrome-extension scripts that pollute the HTML
       html = html.replace(
-        /src="(\.\.\/)+/g,
-        `src="${baseUrl}/`
+        /<script[^>]*chrome-extension:\/\/[^>]*>[\s\S]*?<\/script>/gi,
+        ""
       );
-      // Also rewrite any href="../../..." for CSS etc.
-      html = html.replace(
-        /href="(\.\.\/)+/g,
-        `href="${baseUrl}/`
-      );
+
       bodyBuf = new TextEncoder().encode(html).buffer;
     }
 
     return new NextResponse(bodyBuf, {
       status: 200,
-      headers: {
-        "Content-Type": contentType,
-      },
+      headers: { "Content-Type": contentType },
     });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
