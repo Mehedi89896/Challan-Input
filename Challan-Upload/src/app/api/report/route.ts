@@ -109,16 +109,13 @@ export async function GET(request: NextRequest) {
           const jsRes = await erpFetch(`${baseUrl}/${jsFile.path}`);
           if (jsRes.ok) {
             const jsCode = await jsRes.text();
-            // Replace ALL occurrences of script tags referencing this file
             const scriptTag = `<script type="text/javascript" src="${jsFile.placeholder}"></script>`;
-            // Replace first occurrence with inlined code, remove all other duplicates
+            // Use function replacement to avoid $' $` $& interpretation in JS source
+            const inlineTag = `<script type="text/javascript">\n${jsCode}\n</script>`;
             let replaced = false;
             while (html.includes(scriptTag)) {
               if (!replaced) {
-                html = html.replace(
-                  scriptTag,
-                  `<script type="text/javascript">\n${jsCode}\n</script>`
-                );
+                html = html.replace(scriptTag, () => inlineTag);
                 replaced = true;
               } else {
                 html = html.replace(scriptTag, "");
