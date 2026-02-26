@@ -62,8 +62,8 @@ const companies = [
 ];
 
 const locations = [
-  { id: "1", label: "Unit-1 (Default)" },
-  { id: "2", label: "Unit-2" },
+  { id: "2", label: "Clothing BD Ltd" },
+  { id: "1", label: "Other" },
 ];
 
 export default function DeletePage() {
@@ -79,7 +79,7 @@ export default function DeletePage() {
   const [step, setStep] = useState<DeleteStep>("login");
   const [challanNo, setChallanNo] = useState("");
   const [companyId, setCompanyId] = useState("2");
-  const [locationId, setLocationId] = useState("1");
+  const [locationId, setLocationId] = useState("2");
   const [systemId, setSystemId] = useState("");
   const [details, setDetails] = useState<ChallanDetails | null>(null);
   const [deleteResult, setDeleteResult] = useState<DeleteResult | null>(null);

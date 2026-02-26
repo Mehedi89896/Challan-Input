@@ -78,10 +78,23 @@ function createERPSession() {
 
     await post(`${baseUrl}/login.php`, loginBody);
 
+    const mainPageUrl = `${baseUrl}/production/bundle_wise_sewing_input.php?permission=1_1_1_1`;
+
+    // Load main page first (required for session setup)
+    const pageHeaders = {
+      ...headersCommon,
+      Referer: `${baseUrl}/login.php`,
+    };
+    try {
+      await get(mainPageUrl, pageHeaders);
+    } catch {
+      /* non-critical */
+    }
+
     // Session activation
     const menuHeaders = {
       ...headersCommon,
-      Referer: `${baseUrl}/production/bundle_wise_sewing_input.php?permission=1_1_1_1`,
+      Referer: mainPageUrl,
     };
     try {
       await get(`${baseUrl}/tools/valid_user_action.php?menuid=724`, menuHeaders);
@@ -89,9 +102,11 @@ function createERPSession() {
       /* non-critical */
     }
 
-    const ajaxHeaders = { ...headersCommon };
-    delete ajaxHeaders["Content-Type"];
-    (ajaxHeaders as Record<string, string>)["X-Requested-With"] = "XMLHttpRequest";
+    const ajaxHeaders: Record<string, string> = {
+      "User-Agent": UA,
+      "X-Requested-With": "XMLHttpRequest",
+      Referer: mainPageUrl,
+    };
     try {
       await get(
         `${baseUrl}/includes/common_functions_for_js.php?data=724_7_405&action=create_menu_session`,
@@ -145,12 +160,22 @@ export async function POST(request: NextRequest) {
       const loc = location_id || "1";
       const searchData = `${challan_no}_0__${company_id}_${loc}__1___`;
 
+      // Use proper headers for search (no Content-Type for GET, correct Referer)
+      const mainPageUrl = `${erp.baseUrl}/production/bundle_wise_sewing_input.php?permission=1_1_1_1`;
+      const searchHeaders: Record<string, string> = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        Referer: mainPageUrl,
+      };
+
       const searchRes = await erp.get(
-        `${controllerUrl}?data=${searchData}&action=create_challan_search_list_view`
+        `${controllerUrl}?data=${searchData}&action=create_challan_search_list_view`,
+        searchHeaders
       );
       const searchText = await searchRes.text();
 
-      const match = searchText.match(/js_set_value\('?(\d+)'?\)/);
+      // Python regex: js_set_value\('(\d+)' — match quoted system_id (2 args in call)
+      const match = searchText.match(/js_set_value\('(\d+)'/);
       if (!match) {
         return NextResponse.json(
           { error: "Challan not found in ERP system" },
