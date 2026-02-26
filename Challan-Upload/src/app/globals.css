@@ -1,0 +1,59 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-background: #0d0d0d;
+  --color-foreground: #fafafa;
+  --font-sans: var(--font-jost);
+  --font-display: var(--font-jost);
+  --font-accent: var(--font-quicksand);
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  background: #0d0d0d;
+  color: #fafafa;
+  font-family: var(--font-jost), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Remove number input spinners */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+/* Font utilities */
+.font-display {
+  font-family: var(--font-jost), system-ui, sans-serif;
+}
+.font-accent {
+  font-family: var(--font-quicksand), system-ui, sans-serif;
+}
+
+/* Selection */
+::selection {
+  background: rgba(102, 168, 15, 0.25);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
