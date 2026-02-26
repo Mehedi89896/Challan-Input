@@ -26,6 +26,8 @@ interface SuccessResult {
   system_id: string;
   report1_url: string;
   report2_url: string;
+  report1_sig?: string;
+  report2_sig?: string;
 }
 interface ErrorResult {
   status: "error";
@@ -48,8 +50,17 @@ export default function Home() {
   const [result, setResult] = useState<ProcessResult | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => { inputRef.current?.focus(); }, []);
+  useEffect(() => {
+    inputRef.current?.focus();
+    // Fetch CSRF token on mount
+    fetch("/api/csrf", { credentials: "same-origin" }).catch(() => {});
+  }, []);
 
+  /** Read a cookie value by name */
+  function getCookie(name: string): string {
+    const m = document.cookie.match(new RegExp("(?:^|; )" + name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "=([^;]*)"));
+    return m ? decodeURIComponent(m[1]) : "";
+  }
 
 
   const handleSubmit = async (e: FormEvent) => {
@@ -58,9 +69,14 @@ export default function Home() {
     setLoading(true);
     setResult(null);
     try {
+      const csrfToken = getCookie("__csrf");
       const res = await fetch("/api/process", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRF-Token": csrfToken,
+        },
+        credentials: "same-origin",
         body: JSON.stringify({ challan: challanNo, company_id: selectedCompany }),
       });
       const data: ProcessResult = await res.json();
@@ -384,7 +400,7 @@ export default function Home() {
                       className="grid grid-cols-2 gap-3 mb-5"
                     >
                       <a
-                        href={`/api/report?url=${encodeURIComponent(r.report1_url)}`}
+                        href={`/api/report?url=${encodeURIComponent(r.report1_url)}&sig=${encodeURIComponent(r.report1_sig || "")}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="group flex flex-col items-center gap-2 rounded-2xl border border-white/[0.06] bg-white/[0.02] px-4 py-4 transition-all duration-300 hover:border-[#66a80f]/25 hover:bg-[#66a80f]/[0.04]"
@@ -395,7 +411,7 @@ export default function Home() {
                         </span>
                       </a>
                       <a
-                        href={`/api/report?url=${encodeURIComponent(r.report2_url)}`}
+                        href={`/api/report?url=${encodeURIComponent(r.report2_url)}&sig=${encodeURIComponent(r.report2_sig || "")}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="group flex flex-col items-center gap-2 rounded-2xl border border-white/[0.06] bg-white/[0.02] px-4 py-4 transition-all duration-300 hover:border-[#66a80f]/25 hover:bg-[#66a80f]/[0.04]"

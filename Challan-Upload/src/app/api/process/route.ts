@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
+import {
+  apiGuard,
+  verifyCsrf,
+  sanitizeInput,
+  hmacSign,
+} from "@/lib/security";
 
 // --- BACKEND LOGIC (Converted from Python) ---
 
@@ -397,6 +403,8 @@ async function processData(
           system_id: newSysId,
           report1_url: u1,
           report2_url: u2,
+          report1_sig: u1 ? hmacSign(u1) : "",
+          report2_sig: u2 ? hmacSign(u2) : "",
         };
       } else if (code === "20") {
         return { status: "error", message: "Bundle Already Scanned!" };
@@ -416,6 +424,18 @@ async function processData(
 
 // --- API ROUTE ---
 export async function POST(request: NextRequest) {
+  // ── Security Layer 1: Rate limit + Origin check ──
+  const guardResult = apiGuard(request, { maxRate: 15, refillRate: 1 });
+  if (guardResult) return guardResult;
+
+  // ── Security Layer 2: CSRF verification ──
+  if (!verifyCsrf(request)) {
+    return NextResponse.json(
+      { status: "error", message: "Security token invalid — please refresh the page" },
+      { status: 403 }
+    );
+  }
+
   try {
     const data = await request.json();
 
@@ -426,9 +446,30 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    // ── Security Layer 3: Input sanitization ──
+    const challan = sanitizeInput(data.challan, 20).replace(/[^0-9]/g, "");
+    const companyId = sanitizeInput(data.company_id, 5).replace(/[^0-9]/g, "");
+
+    if (!challan || !companyId) {
+      return NextResponse.json({
+        status: "error",
+        message: "Invalid input format",
+      });
+    }
+
     const clientUA = request.headers.get("User-Agent") || "";
-    const result = await processData(data.challan, clientUA, data.company_id);
-    return NextResponse.json(result);
+    const result = await processData(challan, clientUA, companyId);
+
+    // ── Security Layer 4: HMAC-signed response (integrity) ──
+    const ts = Date.now();
+    const responsePayload = JSON.stringify(result);
+    const sig = hmacSign(`${ts}:${responsePayload}`);
+
+    return NextResponse.json({
+      ...result,
+      _ts: ts,
+      _sig: sig,
+    });
   } catch {
     return NextResponse.json({
       status: "error",

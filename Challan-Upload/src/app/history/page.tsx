@@ -37,6 +37,8 @@ interface ChallanEntry {
   total_quantity: number;
   report1_url: string;
   report2_url: string;
+  report1_sig?: string;
+  report2_sig?: string;
   created_at: string | null;
 }
 
@@ -344,7 +346,7 @@ export default function HistoryPage() {
                     {/* Report links */}
                     <div className="flex items-center gap-2 flex-shrink-0">
                       <a
-                        href={`/api/report?url=${encodeURIComponent(entry.report1_url)}`}
+                        href={`/api/report?url=${encodeURIComponent(entry.report1_url)}&sig=${encodeURIComponent(entry.report1_sig || "")}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="p-2 rounded-xl bg-white/[0.02] border border-white/[0.05] hover:border-[#66a80f]/20 hover:bg-[#66a80f]/[0.04] transition-all"
@@ -353,7 +355,7 @@ export default function HistoryPage() {
                         <Printer size={14} className="text-white/45 group-hover:text-[#66a80f]" strokeWidth={1.5} />
                       </a>
                       <a
-                        href={`/api/report?url=${encodeURIComponent(entry.report2_url)}`}
+                        href={`/api/report?url=${encodeURIComponent(entry.report2_url)}&sig=${encodeURIComponent(entry.report2_sig || "")}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="p-2 rounded-xl bg-white/[0.02] border border-white/[0.05] hover:border-[#66a80f]/20 hover:bg-[#66a80f]/[0.04] transition-all"

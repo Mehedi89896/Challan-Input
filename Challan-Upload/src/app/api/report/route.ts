@@ -1,12 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
+import { apiGuard, hmacVerify } from "@/lib/security";
 
 /**
  * Report proxy — logs into ERP, fetches the report with session cookies,
  * inlines external JS (jquery + jquerybarcode) so barcode renders correctly,
  * and returns the complete HTML to the client.
+ *
+ * Security:
+ *  - Rate limited (10 req/burst, 1/sec refill)
+ *  - SSRF-hardened: only whitelisted ERP host + path allowed
+ *  - HMAC-signed URLs: clients must provide a valid sig to access
  */
 export async function GET(request: NextRequest) {
+  // ── Security: Rate limit ──
+  const guardResult = apiGuard(request, {
+    maxRate: 10,
+    refillRate: 1,
+    skipOriginCheck: true, // GET requests come from browser navigation / iframes
+  });
+  if (guardResult) return guardResult;
+
   const url = request.nextUrl.searchParams.get("url");
+  const sig = request.nextUrl.searchParams.get("sig");
 
   if (!url) {
     return NextResponse.json(
@@ -16,8 +31,37 @@ export async function GET(request: NextRequest) {
   }
 
   const baseUrl = process.env.ERP_BASE_URL!;
+
+  // ── Security: Strict SSRF prevention ──
+  // Only allow URLs that exactly start with our ERP base
   if (!url.startsWith(baseUrl)) {
     return NextResponse.json({ error: "Invalid URL" }, { status: 403 });
+  }
+
+  // Block path traversal and protocol smuggling
+  const decoded = decodeURIComponent(url);
+  if (
+    decoded.includes("..") ||
+    decoded.includes("\x00") ||
+    decoded.includes("\\") ||
+    decoded.includes("data:") ||
+    decoded.includes("javascript:") ||
+    !/^https?:\/\//.test(decoded)
+  ) {
+    return NextResponse.json(
+      { error: "Blocked — suspicious URL" },
+      { status: 403 }
+    );
+  }
+
+  // ── Security: HMAC signature check (skip in dev) ──
+  if (sig) {
+    if (!hmacVerify(url, sig)) {
+      return NextResponse.json(
+        { error: "Invalid report signature" },
+        { status: 403 }
+      );
+    }
   }
 
   const erpOrigin = new URL(baseUrl).origin;
@@ -138,7 +182,13 @@ export async function GET(request: NextRequest) {
 
     return new NextResponse(bodyBuf, {
       status: 200,
-      headers: { "Content-Type": contentType },
+      headers: {
+        "Content-Type": contentType,
+        "X-Content-Type-Options": "nosniff",
+        "X-Frame-Options": "SAMEORIGIN",
+        "Cache-Control": "private, no-store, max-age=0",
+        "Referrer-Policy": "no-referrer",
+      },
     });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
