@@ -98,53 +98,39 @@ export async function GET(request: NextRequest) {
     if (contentType.includes("text/html")) {
       let html = new TextDecoder().decode(bodyBuf);
 
-      // Find all <script src="..."> tags with relative paths and inline them
-      const scriptRegex =
-        /<script[^>]+src="([^"]*?\.js)"[^>]*><\/script>/gi;
-      let match: RegExpExecArray | null;
-      const replacements: { original: string; jsUrl: string }[] = [];
+      // Fetch the two barcode-critical JS files from ERP and inline them
+      const jsFiles = [
+        { path: "js/jquery.js", placeholder: "../../js/jquery.js" },
+        { path: "js/jquerybarcode.js", placeholder: "../../js/jquerybarcode.js" },
+      ];
 
-      while ((match = scriptRegex.exec(html)) !== null) {
-        const srcAttr = match[1];
-        // Only process ERP scripts (relative paths like ../../js/...)
-        if (
-          srcAttr.startsWith("../../") ||
-          srcAttr.startsWith("../") ||
-          srcAttr.startsWith(baseUrl)
-        ) {
-          let absoluteUrl: string;
-          if (srcAttr.startsWith("http")) {
-            absoluteUrl = srcAttr;
-          } else {
-            // Resolve relative to the report URL directory
-            const reportDir = url.substring(
-              0,
-              url.lastIndexOf("/") + 1
-            );
-            // Handle ../../ by resolving the URL
-            absoluteUrl = new URL(srcAttr, reportDir).href;
-          }
-          replacements.push({ original: match[0], jsUrl: absoluteUrl });
-        }
-      }
-
-      // Fetch each JS file and inline it
-      for (const rep of replacements) {
+      for (const jsFile of jsFiles) {
         try {
-          const jsRes = await erpFetch(rep.jsUrl);
+          const jsRes = await erpFetch(`${baseUrl}/${jsFile.path}`);
           if (jsRes.ok) {
             const jsCode = await jsRes.text();
-            html = html.replace(
-              rep.original,
-              `<script type="text/javascript">\n${jsCode}\n</script>`
-            );
+            // Replace ALL occurrences of script tags referencing this file
+            const scriptTag = `<script type="text/javascript" src="${jsFile.placeholder}"></script>`;
+            // Replace first occurrence with inlined code, remove all other duplicates
+            let replaced = false;
+            while (html.includes(scriptTag)) {
+              if (!replaced) {
+                html = html.replace(
+                  scriptTag,
+                  `<script type="text/javascript">\n${jsCode}\n</script>`
+                );
+                replaced = true;
+              } else {
+                html = html.replace(scriptTag, "");
+              }
+            }
           }
         } catch {
-          // If a JS file fails to load, leave the original tag
+          // If JS fetch fails, leave as-is
         }
       }
 
-      // Remove chrome-extension scripts that pollute the HTML
+      // Remove chrome-extension scripts
       html = html.replace(
         /<script[^>]*chrome-extension:\/\/[^>]*>[\s\S]*?<\/script>/gi,
         ""
