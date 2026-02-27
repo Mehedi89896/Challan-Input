@@ -156,25 +156,36 @@ export default function BarcodePage() {
       // Date range filter
       if (dateFrom || dateTo) {
         const raw = row.inputDate.trim();
-        // Try parsing common date formats: DD-MM-YYYY, DD/MM/YYYY, YYYY-MM-DD
+        // Parse date - try multiple formats
         let rowDate: Date | null = null;
-        const dashParts = raw.split(/[-/.]/);
-        if (dashParts.length === 3) {
-          const [a, b, c] = dashParts;
+        const parts = raw.split(/[-/.]/);
+        if (parts.length === 3) {
+          const [a, b, c] = parts.map(s => s.trim());
           if (a.length === 4) {
-            rowDate = new Date(`${a}-${b.padStart(2, "0")}-${c.padStart(2, "0")}`);
-          } else {
-            rowDate = new Date(`${c}-${b.padStart(2, "0")}-${a.padStart(2, "0")}`);
+            // YYYY-MM-DD or YYYY/MM/DD
+            rowDate = new Date(Number(a), Number(b) - 1, Number(c));
+          } else if (c.length === 4) {
+            const numA = Number(a);
+            const numB = Number(b);
+            if (numA > 12) {
+              // DD/MM/YYYY (day > 12 so a must be day)
+              rowDate = new Date(Number(c), numB - 1, numA);
+            } else if (numB > 12) {
+              // MM/DD/YYYY (b > 12 so b must be day)
+              rowDate = new Date(Number(c), numA - 1, numB);
+            } else {
+              // Both <= 12, assume MM/DD/YYYY (ERP default)
+              rowDate = new Date(Number(c), numA - 1, numB);
+            }
           }
         }
         if (rowDate && !isNaN(rowDate.getTime())) {
           if (dateFrom) {
-            const from = new Date(dateFrom);
+            const from = new Date(dateFrom + "T00:00:00");
             if (rowDate < from) return false;
           }
           if (dateTo) {
-            const to = new Date(dateTo);
-            to.setHours(23, 59, 59, 999);
+            const to = new Date(dateTo + "T23:59:59");
             if (rowDate > to) return false;
           }
         }
