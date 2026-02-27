@@ -57,3 +57,30 @@ input[type="number"] {
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.15);
 }
+
+/* Print styles */
+@media print {
+  body {
+    background: white !important;
+    color: black !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .print\:hidden {
+    display: none !important;
+  }
+  table {
+    border-collapse: collapse;
+  }
+  th, td {
+    border: 1px solid #ccc !important;
+    color: black !important;
+    background: white !important;
+    padding: 4px 6px !important;
+    font-size: 11px !important;
+  }
+  th {
+    background: #f0f0f0 !important;
+    font-weight: 600 !important;
+  }
+}

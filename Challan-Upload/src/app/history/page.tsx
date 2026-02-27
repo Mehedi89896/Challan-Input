@@ -22,6 +22,7 @@ import {
   Palette,
   Package,
   Trash2,
+  Barcode,
 } from "lucide-react";
 
 /* ── Types ── */
@@ -160,13 +161,22 @@ export default function HistoryPage() {
           <h1 className="font-display text-base sm:text-lg font-semibold text-white">
             Challan History
           </h1>
-          <Link
-            href="/delete"
-            className="p-2 rounded-xl bg-white/[0.02] border border-white/[0.04] hover:border-red-500/20 hover:bg-red-500/[0.06] transition-all group"
-            title="Delete Challan"
-          >
-            <Trash2 size={15} className="text-white/25 group-hover:text-red-400 transition-colors" strokeWidth={1.5} />
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link
+              href="/barcode"
+              className="p-2 rounded-xl bg-white/[0.02] border border-white/[0.04] hover:border-[#66a80f]/20 hover:bg-[#66a80f]/[0.06] transition-all group"
+              title="Barcode Tracking"
+            >
+              <Barcode size={15} className="text-white/25 group-hover:text-[#66a80f] transition-colors" strokeWidth={1.5} />
+            </Link>
+            <Link
+              href="/delete"
+              className="p-2 rounded-xl bg-white/[0.02] border border-white/[0.04] hover:border-red-500/20 hover:bg-red-500/[0.06] transition-all group"
+              title="Delete Challan"
+            >
+              <Trash2 size={15} className="text-white/25 group-hover:text-red-400 transition-colors" strokeWidth={1.5} />
+            </Link>
+          </div>
         </div>
       </div>
 
