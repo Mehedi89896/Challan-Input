@@ -145,6 +145,7 @@ export default function BarcodePage() {
 
   /* ── Filtered report data ── */
   const filteredReportData = useMemo(() => {
+    let logged = false;
     return reportData.filter((row) => {
       if (reportFilters.barcode && !row.barcode.toLowerCase().includes(reportFilters.barcode.toLowerCase())) return false;
       if (reportFilters.challanNo && !row.challanNo.toLowerCase().includes(reportFilters.challanNo.toLowerCase())) return false;
@@ -155,30 +156,44 @@ export default function BarcodePage() {
 
       // Date range filter
       if (dateFrom || dateTo) {
-        const raw = row.inputDate.trim();
-        // Parse date - try multiple formats
+        const raw = row.inputDate.replace(/&nbsp;/gi, " ").replace(/\s+/g, " ").trim();
+        if (!logged) { console.log("[DATE DEBUG] raw inputDate:", JSON.stringify(raw), "| dateFrom:", dateFrom, "| dateTo:", dateTo); }
+        
         let rowDate: Date | null = null;
-        const parts = raw.split(/[-/.]/);
-        if (parts.length === 3) {
-          const [a, b, c] = parts.map(s => s.trim());
-          if (a.length === 4) {
-            // YYYY-MM-DD or YYYY/MM/DD
-            rowDate = new Date(Number(a), Number(b) - 1, Number(c));
-          } else if (c.length === 4) {
-            const numA = Number(a);
-            const numB = Number(b);
-            if (numA > 12) {
-              // DD/MM/YYYY (day > 12 so a must be day)
-              rowDate = new Date(Number(c), numB - 1, numA);
-            } else if (numB > 12) {
-              // MM/DD/YYYY (b > 12 so b must be day)
-              rowDate = new Date(Number(c), numA - 1, numB);
-            } else {
-              // Both <= 12, assume MM/DD/YYYY (ERP default)
-              rowDate = new Date(Number(c), numA - 1, numB);
+        
+        // Method 1: Try native Date.parse (handles many formats)
+        const nativeParsed = new Date(raw);
+        if (!isNaN(nativeParsed.getTime()) && nativeParsed.getFullYear() > 2000) {
+          rowDate = nativeParsed;
+        }
+        
+        // Method 2: Try splitting DD/MM/YYYY or MM/DD/YYYY
+        if (!rowDate) {
+          const parts = raw.split(/[-/.]/);
+          if (parts.length === 3) {
+            const [a, b, c] = parts.map(s => s.trim());
+            const numA = Number(a), numB = Number(b), numC = Number(c);
+            if (a.length === 4 && numB >= 1 && numB <= 12) {
+              rowDate = new Date(numA, numB - 1, numC);
+            } else if (c.length === 4) {
+              if (numA > 12 && numB >= 1 && numB <= 12) {
+                rowDate = new Date(numC, numB - 1, numA);
+              } else if (numB > 12 && numA >= 1 && numA <= 12) {
+                rowDate = new Date(numC, numA - 1, numB);
+              } else if (numA >= 1 && numA <= 12) {
+                // Ambiguous, try DD/MM/YYYY first (BD format)
+                rowDate = new Date(numC, numB - 1, numA);
+                // Validate
+                if (!rowDate || isNaN(rowDate.getTime()) || rowDate.getMonth() !== numB - 1) {
+                  rowDate = new Date(numC, numA - 1, numB);
+                }
+              }
             }
           }
         }
+        
+        if (!logged) { console.log("[DATE DEBUG] parsed rowDate:", rowDate?.toISOString?.()); logged = true; }
+        
         if (rowDate && !isNaN(rowDate.getTime())) {
           if (dateFrom) {
             const from = new Date(dateFrom + "T00:00:00");
