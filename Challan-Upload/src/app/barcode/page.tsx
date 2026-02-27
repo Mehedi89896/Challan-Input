@@ -24,6 +24,7 @@ import {
   Printer,
   Ruler,
   CircleCheck,
+  CalendarDays,
 } from "lucide-react";
 
 /* ── Types ── */
@@ -97,6 +98,10 @@ export default function BarcodePage() {
     output: "",
   });
 
+  // Date range filters
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -147,11 +152,39 @@ export default function BarcodePage() {
       if (reportFilters.lineNo && !row.lineNo.toLowerCase().includes(reportFilters.lineNo.toLowerCase())) return false;
       if (reportFilters.qty && !row.qty.toLowerCase().includes(reportFilters.qty.toLowerCase())) return false;
       if (reportFilters.output && !row.sewingOutput.toLowerCase().includes(reportFilters.output.toLowerCase())) return false;
+
+      // Date range filter
+      if (dateFrom || dateTo) {
+        const raw = row.inputDate.trim();
+        // Try parsing common date formats: DD-MM-YYYY, DD/MM/YYYY, YYYY-MM-DD
+        let rowDate: Date | null = null;
+        const dashParts = raw.split(/[-/.]/);
+        if (dashParts.length === 3) {
+          const [a, b, c] = dashParts;
+          if (a.length === 4) {
+            rowDate = new Date(`${a}-${b.padStart(2, "0")}-${c.padStart(2, "0")}`);
+          } else {
+            rowDate = new Date(`${c}-${b.padStart(2, "0")}-${a.padStart(2, "0")}`);
+          }
+        }
+        if (rowDate && !isNaN(rowDate.getTime())) {
+          if (dateFrom) {
+            const from = new Date(dateFrom);
+            if (rowDate < from) return false;
+          }
+          if (dateTo) {
+            const to = new Date(dateTo);
+            to.setHours(23, 59, 59, 999);
+            if (rowDate > to) return false;
+          }
+        }
+      }
+
       return true;
     });
-  }, [reportData, reportFilters]);
+  }, [reportData, reportFilters, dateFrom, dateTo]);
 
-  const hasAnyReportFilter = Object.values(reportFilters).some((v) => v.trim() !== "");
+  const hasAnyReportFilter = Object.values(reportFilters).some((v) => v.trim() !== "") || dateFrom !== "" || dateTo !== "";
 
   /* ── Step 1: Search Int. Ref. ── */
   const handleSearch = async (e: FormEvent) => {
@@ -229,6 +262,8 @@ export default function BarcodePage() {
       setReportData(data.data || []);
       setReportTotal(data.total || 0);
       setReportFilters({ barcode: "", challanNo: "", size: "", lineNo: "", qty: "", output: "" });
+      setDateFrom("");
+      setDateTo("");
       setStep("report");
     } catch {
       setError("Network error — server unreachable");
@@ -245,6 +280,8 @@ export default function BarcodePage() {
     setReportData([]);
     setReportTotal(0);
     setReportFilters({ barcode: "", challanNo: "", size: "", lineNo: "", qty: "", output: "" });
+    setDateFrom("");
+    setDateTo("");
     setError("");
     setScanChoice("unscanned");
     setTimeout(() => inputRef.current?.focus(), 80);
@@ -255,6 +292,8 @@ export default function BarcodePage() {
     setReportData([]);
     setReportTotal(0);
     setReportFilters({ barcode: "", challanNo: "", size: "", lineNo: "", qty: "", output: "" });
+    setDateFrom("");
+    setDateTo("");
     setError("");
   };
 
@@ -264,6 +303,8 @@ export default function BarcodePage() {
 
   const clearReportFilters = () => {
     setReportFilters({ barcode: "", challanNo: "", size: "", lineNo: "", qty: "", output: "" });
+    setDateFrom("");
+    setDateTo("");
   };
 
   const handlePrint = () => {
@@ -837,6 +878,35 @@ export default function BarcodePage() {
                     </div>
                   ))}
                 </div>
+
+                {/* Date range filters */}
+                <div className="grid grid-cols-2 gap-3 mt-3">
+                  <div>
+                    <label className="flex items-center gap-1 text-xs font-display font-semibold uppercase tracking-wider text-white/70 mb-1">
+                      <span className="text-white/50"><CalendarDays size={10} /></span>
+                      From Date
+                    </label>
+                    <input
+                      type="date"
+                      value={dateFrom}
+                      onChange={(e) => setDateFrom(e.target.value)}
+                      className="w-full px-3 py-2.5 bg-white/[0.06] border border-white/[0.1] rounded-xl text-sm text-white font-display focus:outline-none focus:border-[#66a80f]/40 focus:ring-1 focus:ring-[#66a80f]/15 transition-all [color-scheme:dark]"
+                    />
+                  </div>
+                  <div>
+                    <label className="flex items-center gap-1 text-xs font-display font-semibold uppercase tracking-wider text-white/70 mb-1">
+                      <span className="text-white/50"><CalendarDays size={10} /></span>
+                      To Date
+                    </label>
+                    <input
+                      type="date"
+                      value={dateTo}
+                      onChange={(e) => setDateTo(e.target.value)}
+                      className="w-full px-3 py-2.5 bg-white/[0.06] border border-white/[0.1] rounded-xl text-sm text-white font-display focus:outline-none focus:border-[#66a80f]/40 focus:ring-1 focus:ring-[#66a80f]/15 transition-all [color-scheme:dark]"
+                    />
+                  </div>
+                </div>
+
                 {hasAnyReportFilter && (
                   <button
                     type="button"
