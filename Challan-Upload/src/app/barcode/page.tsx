@@ -145,7 +145,6 @@ export default function BarcodePage() {
 
   /* ── Filtered report data ── */
   const filteredReportData = useMemo(() => {
-    let logged = false;
     return reportData.filter((row) => {
       if (reportFilters.barcode && !row.barcode.toLowerCase().includes(reportFilters.barcode.toLowerCase())) return false;
       if (reportFilters.challanNo && !row.challanNo.toLowerCase().includes(reportFilters.challanNo.toLowerCase())) return false;
@@ -157,7 +156,6 @@ export default function BarcodePage() {
       // Date range filter
       if (dateFrom || dateTo) {
         const raw = row.inputDate.replace(/&nbsp;/gi, " ").replace(/\s+/g, " ").trim();
-        if (!logged) { console.log("[DATE DEBUG] raw inputDate:", JSON.stringify(raw), "| dateFrom:", dateFrom, "| dateTo:", dateTo); }
         
         let rowDate: Date | null = null;
         
@@ -191,8 +189,6 @@ export default function BarcodePage() {
             }
           }
         }
-        
-        if (!logged) { console.log("[DATE DEBUG] parsed rowDate:", rowDate?.toISOString?.()); logged = true; }
         
         if (rowDate && !isNaN(rowDate.getTime())) {
           if (dateFrom) {

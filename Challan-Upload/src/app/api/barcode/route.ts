@@ -409,7 +409,6 @@ export async function POST(request: NextRequest) {
         success: true,
         data: allData,
         total: allData.length,
-        dateSample: allData.length > 0 ? allData[0].inputDate : null,
       });
     }
 
